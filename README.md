@@ -1,6 +1,6 @@
 # pyswarm
 
-A simple partical based simulator of swarms coded in Python and Scipy packages
+A simple particle based simulator of swarms coded in Python and Scipy packages
 
 Requires:
     python*                        2.7.17
