@@ -5,14 +5,15 @@ import time
 import sys
 import os
 import pickle
-
+from functools import partial
 
 import numpy as np
 import scipy.spatial
 from SimulationRobot import SimulationRobot
+
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
-
+import matplotlib.patches as patches
 """
 Basic Python swam simulator by Julian Hird - j.hird@bristol.ac.uk
 Tested on:
@@ -76,7 +77,7 @@ class SimulationWorld:
         self.collision_bin_size = 1.0
 
         #How many times should we execute binary search to resolve colisions, high numbers mean higher accuracy but will take longer
-        self.max_col_resolve_depth = 3
+        self.max_col_resolve_depth = 2
 
         #Enable collision detection between robots
         self.robot_collisions = True
@@ -84,9 +85,12 @@ class SimulationWorld:
         #Enable calculation of neighbours of robots
         self.calculate_neighbours = True
 
+
         #How long the simulation will run for in time steps
         self.total_steps_num = 0
 
+        #Log data with this period, should be a multiple of dt
+        self.data_log_period = 0.1
         #Log used to store simulation information (currently robot positions and rotations)
         self.data_log = None
 
@@ -217,6 +221,15 @@ class SimulationWorld:
         Initialises data log to length determined by steps_num
         Note:
             Data log is initialised to zero so if not all simulation steps are executed then data log after t_step will not be valid
+
+            Data log takes is of the shape (num_robots, data_log_length,4)
+
+            For a given robot at a given data index eg. data_log[0,0,:] = [robot x, robot y, robot rotation, robot state]
+            
+            Data is logged every data_log_period  in simulation time. If this is smaller than simulation timesteps (dt) then data_log_period will equal dt
+            and will be logged every timestep. You may wish to make data_log_period greater than dt for large numbers of simulation steps or if you are only interested in the final state of the simulaiton
+
+            data_log_period will be rounded down to the neariest multiple of dt and should be set before this function is called
         Parameters
         ----------
             steps_num : int
@@ -224,27 +237,96 @@ class SimulationWorld:
         """
 
         self.total_steps_num = steps_num
-        self.data_log = np.zeros((self.num_robots,self.total_steps_num,3))
+
+        self.log_period_steps =  int(np.max((1.0,np.floor(self.data_log_period /self.dt))))
+
+        self.data_log_period = self.log_period_steps*self.dt
+
+        log_length = int(np.ceil(float(self.total_steps_num)/self.log_period_steps)) 
+
+        self.data_log = np.zeros((self.num_robots,log_length,4))
 
         if self.calculate_neighbours:
-            self.current_robot_poses = np.zeros((self.num_robots,3))
+            self.current_robot_states = np.zeros((self.num_robots,4))
+
         robot_index = 0
         for r in self.robot_list:
             self.data_log[robot_index,0,:2] = r.position[:2]
             self.data_log[robot_index,0,2] = r.rotation
+            self.data_log[robot_index,0,3] = r.robot_state
 
 
             if self.calculate_neighbours:
-                self.current_robot_poses[robot_index,:2] = r.position[:2]
-                self.current_robot_poses[robot_index,2]  = r.rotation
+                self.current_robot_states[robot_index,:2] = r.position[:2]
+                self.current_robot_states[robot_index,2]  = r.rotation
+                self.current_robot_states[robot_index,3]  = r.robot_state
             r.on_sim_start()
             robot_index+=1
-        self.t_step=1
         
-    def init_physics(self):
+        self.data_log_index = 1
+        self.t_step=1
+
+    def get_data_log_index_at_time(self,time):
+        """
+        Returns the index of the data_log closest to "time" 
+
+        NOTE 
+            time is rounded down to the nearest time when data was logged. So the data log entry will never occur after the specified time
+        Parameters
+        ----------
+        time - float
+            Simulation time in seconds to get the data index for  
+        returns
+            int - data_log index
+        """
+        return np.floor(time/self.data_log_period).astype('int')
+
+    def get_data_log_at_time(self,time):
+        """
+        Returns the data_log entry coresponding to the simulation time specified by time
+
+        NOTE 
+        time is rounded down to the nearest time when data was logged. So the data log entry will never occur after the specified time
+        Parameters
+        ----------
+        time - float
+            Simulation time in seconds to get the data index for  
+        returns
+            np.array - data_log entry at "time"
+        """
+        return self.get_data_log_by_index(self.get_data_log_index_at_time(time),self.get_data_log_index_at_time(time)+1)
+
+    def get_data_log_by_index(self,index_start,index_end):
+        """
+        Accesses the data log between index_start and index_end (non inclusive). Indexes are clipped so they remain in the simulation period.
+        This means that accessing the data log using this function at indexes beyond the end of the simulation will result in accessing the data log at the last data_log entry.
+        
+        See get_data_log_index_at_time to convert between simulation time and data log indexes
+
+        
+        Parameters
+        ----------
+        index_start -  index of the data log to begin access at 
+
+        index_end -  index of the data log to end access at (not included)
+
+        Returns
+        np.array - datalog between these indexes 
+        OR
+        None if indexes are invalid or equal
+
+        """
+
+        if index_end > index_start:
+            clipped_indexes = np.clip(range(index_start,index_end),0,self.data_log.shape[1]-1)
+            return self.data_log[:,clipped_indexes,:]
+        else:
+            return None     
+    def init_physics(self,maximum_neighbour_size = 1.0):
         """
         Initialises the collision grid. Should be called after setting bin_size and barriers
         """
+        self.neighbour_bin_half_size = maximum_neighbour_size/self.bin_size
         self.bin_layout = np.array((np.ceil((self.barriers[1]-self.barriers[0])/self.bin_size),np.ceil((self.barriers[3]-self.barriers[2])/self.bin_size)),dtype = 'int')
        
     def assign_robot_to_bin(self,robot):
@@ -281,7 +363,9 @@ class SimulationWorld:
                 if (bin_x_index >= 0 and bin_y_index >= 0 and bin_x_index < self.bin_layout[0] and bin_y_index < self.bin_layout[1]):
                     collison_list+=(self.robot_bins[bin_x_index][bin_y_index][:])
         return collison_list
-    def arrange(self,settings):
+
+
+    def arrange(self,mode = "smallest_square", **kargs):
         """
         Arranges the robots into a starting configuration. Should be called just before the first time_step()
 
@@ -299,27 +383,27 @@ class SimulationWorld:
 
         """
 
-        mode = settings[0]
-        self.robot_radius = self.robot_list[0].robot_params["radius"]  
-
-        self.sep_dist = self.robot_radius*2
-
-  
-        if mode == "auto_box":
 
 
-            boxpos = settings[1]
-            robot_spacing = settings[2]
-            rand_amount = settings[3]
-                
+        if mode == "smallest_square" or mode == "uniform_box":
+
+
+            boxpos = kargs["center_pos"]
+            robot_spacing =  kargs["robot_separation"]
+            rand_amount = kargs.setdefault("added_noise",0.0)
+            
+
             robot_index = 0
 
             robot_spacing/=2
             robot_spacing+= self.robot_list[0].robot_params["radius"] 
             robot_spacing*=2
-
-            boxsize = robot_spacing*np.ceil(np.sqrt(self.num_robots))*np.ones(2) + robot_spacing/2
-
+            if mode == "smallest_square":
+                boxsize = robot_spacing*np.ceil(np.sqrt(self.num_robots))*np.ones(2) + robot_spacing/2
+            elif mode == "uniform_box":
+                self.sep_dist = self.robot_list[0].robot_params["radius"]*2
+                boxsize = kargs["box_size"]
+            
             grid_width = int(np.floor(boxsize[0]/robot_spacing))#Assumes same size of robots
             grid_height = int(np.floor(boxsize[1]/robot_spacing))
 
@@ -337,7 +421,7 @@ class SimulationWorld:
                 r.rotation = np.random.uniform(-np.pi,np.pi)
                 r.position = boxpos - np.array(boxsize)/2.0 + grid_points[robot_index]*robot_spacing +extra_space/2 + np.random.uniform(-rand_amount,rand_amount,(2,))
                 robot_index+=1
-                
+        
             
         ##################Asign robots to collision bins####################   
         self.robot_bins = [ [ [] for i in range(int(self.bin_layout[1])) ] for i in range(int(self.bin_layout[0])) ]
@@ -376,6 +460,7 @@ class SimulationWorld:
 
 
 
+        logging_step = self.t_step%self.log_period_steps == 0
 
         robot_index = 0
         ###############Update position of each robot#################
@@ -383,32 +468,47 @@ class SimulationWorld:
         #This dictionary could have any data from the world in it when it makes sense to pre-calcated for each robot, rarther than have each robot query the world class during its control update
         self.world_sense_data = {}
         if self.calculate_neighbours:
-            self.world_sense_data["current_robot_poses"] = self.current_robot_poses.copy()
+            current_robot_state = self.current_robot_states.copy()
+
+            self.world_sense_data["current_robot_poses"] =  current_robot_state[:,:3]#We copy this as it is changed in the loop below.
+
+            #calculates the distance matrix where the element i,j represents the distance between robot i and robot j. This matrix is symetrical so that element i,j is equal to j,i
+            #eg1. To get this distance between robot 0 and robot 5 this would be self.world_sense_data["robot_distances"][0,5]
+            #eg2. To get the distance between robot 0 and all other robots this would be self.world_sense_data["robot_distances"][0,:]
             self.world_sense_data["robot_distances"] = scipy.spatial.distance.cdist( self.world_sense_data["current_robot_poses"][:,:2],self.world_sense_data["current_robot_poses"][:,:2])
-        for r in self.robot_list:    
+            self.world_sense_data["current_robot_states"] = current_robot_state[:,3]        
+        for r in self.robot_list:   
+
             #Move each robot according to velocity
             r.movement_update(self.dt)
+
             #Update robot logic 
-
-
             r.control_update(self.dt,self)
 
-
-            collision_list = self.get_robots_collision_list(r)
-            
+            #collision detection
             in_collision_b = self.check_barriers(r.robot_params["radius"] ,r.position)
             in_collision_r = False
+
+            #create list of robots the robot might be in collision with if collision are enabled
+
+            if self.robot_collisions:
+                collision_list = self.get_robots_collision_list(r)
+                collision_list.remove(robot_index)
+            else:
+                collision_list = []
+            
+            #check list of robots we might be in colision with unless we're already in collison 
             if not in_collision_b and self.robot_collisions:
+                
                 for i in collision_list:
                     r2 = self.robot_list[i]
-                    if not r is r2: 
-                        in_collision_r = self.check_robot_collision(r.position,r2.position,r.robot_params["radius"] ,r2.robot_params["radius"])
+                    in_collision_r = self.check_robot_collision(r.position,r2.position,r.robot_params["radius"] ,r2.robot_params["radius"])
                     if in_collision_r:
                         break
-
             
             in_collision = in_collision_b or in_collision_r
             if in_collision:
+                #resolve the collision using binary search
                 solved_dt = self.solve_collison(r,collision_list,0.0,self.dt,depth = 0)
                 r.position = r.prev_position + r.velocity*solved_dt
             
@@ -417,60 +517,23 @@ class SimulationWorld:
             bin_index = self.assign_robot_to_bin(r)
             self.robot_bins[r.bin_index[0]][r.bin_index[1]].append(robot_index)    
             
-            ###Log data, could add other measures here such as robot states etc.
-            self.data_log[robot_index,self.t_step,:2] = r.position[:2]
-            self.data_log[robot_index,self.t_step,2]  = r.rotation
+            #Log data, could add other measures here such as robot states etc.
+            #The data log doesn't log every time step allowing for smaller filesizes for long simulations
+            if logging_step:
+                self.data_log[robot_index,self.data_log_index,:2] = r.position[:2]
+                self.data_log[robot_index,self.data_log_index,2]  = r.rotation
+                self.data_log[robot_index,self.data_log_index,3]  = r.robot_state
+
             if self.calculate_neighbours:
-                self.current_robot_poses[robot_index,:2] = r.position[:2]
-                self.current_robot_poses[robot_index,2]  = r.rotation
+                self.current_robot_states[robot_index,:2] = r.position[:2]
+                self.current_robot_states[robot_index,2]  = r.rotation
+                self.current_robot_states[robot_index,3]  = r.robot_state
             robot_index+=1
 
+        if logging_step:
+            self.data_log_index+=1      
         self.t_step+=1
-    def plot_world(self,time_step,plot_robot_trajectories = False,bounds = None, physics_debug = False):
-        """
-        Plots the world for debuging purposes
 
-        Parameters
-        ----------
-        time_step - int
-            time step to plot
-        plot_robot_trajectories - bool
-            Will plot the position history for each robot
-        bounds - tuple 
-            The bounds to the plot. Defaults to world's barriers
-        physics_debug - Bool 
-            If true will plot collision grid and robot's previous positions
-        """
-        for i in range(self.num_robots):
-            if plot_robot_trajectories:    
-                plt.plot(self.data_log[i,0:time_step,0],self.data_log[i,0:time_step,1],linewidth = 0.5)
-            robot_body_line = gen_circle((0.0,0.0),world.robot_list[i].robot_params["radius"],20)
-            plt.plot(self.data_log[i,time_step,0],self.data_log[i,time_step,1],marker='o')
-            plt.plot(robot_body_line[:,0] + self.data_log[i,time_step,0],robot_body_line[:,1] + self.data_log[i,time_step,1])
-            plt.text(self.data_log[i,time_step,0], self.data_log[i,time_step,1], "r{}".format(i))
-            if time_step > 0 and physics_debug:
-                  plt.plot(robot_body_line[:,0] + self.data_log[i,time_step-1,0],robot_body_line[:,1] + self.data_log[i,time_step-1,1],linestyle = '--',color ='r')
-          
-        p1 = np.array((self.barriers[0],self.barriers[2]))
-        p2 = np.array((self.barriers[1],self.barriers[2]))
-        p3 = np.array((self.barriers[1],self.barriers[3]))
-        p4 = np.array((self.barriers[0],self.barriers[3]))
-
-        barrier_line = np.vstack((p1,p2,p3,p4,p1))
-        plt.plot(barrier_line[:,0],barrier_line[:,1])
-        if physics_debug:
-            print(self.bin_layout)
-            for x in range(self.bin_layout[0]):
-                plt.plot((x*self.bin_size+self.barriers[0],x*self.bin_size+self.barriers[0]),(self.barriers[2],self.barriers[3]),linestyle= '--',linewidth = 0.5,color = 'black')
-            for y in range(self.bin_layout[1]):
-                plt.plot((self.barriers[0],self.barriers[1]),(y*self.bin_size+self.barriers[2],y*self.bin_size+self.barriers[2]),linestyle= '--',linewidth = 0.5,color = 'black')
-        plt.axis('equal')
-        if bounds is None:
-            plt.xlim((self.barriers[0]*1.1,self.barriers[1]*1.1))
-            plt.ylim((self.barriers[2]*1.1,self.barriers[3]*1.1))
-        else:
-            plt.xlim((bounds[0],bounds[1]))
-            plt.ylim((bounds[2],bounds[3]))
     def save(self,file_path):
         """
         Saves the world to a pickle file at the filepath
@@ -514,45 +577,167 @@ class WorldAnimation():
     NOTE:
         This could be done a lot nicer with patches, but for simplicity we will stick with lines
     """
-    def __init__(self,world):
+    def __init__(self,world,**kargs):
         """
         Initialises the WorldAnimation class
+
+        NOTE:
+            This class will create its own figure
 
         Parameters
         ---------
         world - SimulationWorld
             The world you want to animate
+
+        **kargs - misc
+
+        Valid **kargs Keywords
+
+        robot_trail_length - str
+            Controls the length of the trail behind each robot in terms of timesteps (default 0)
+        robot_trail_width - float
+            Controls the width of robot trails (default = 0.1)
+        robot_state_cmap - dict
+            Maps between robot state (intergers) to valid matplotlib colour codes. dict should be in the form {robot_state : colour}
+        "robot_labels" - bool
+            If true will label each robot with its robot_index (Default = False)
+
+        fast_plot - bool
+            If true will disable robot trails, robot labels and simpify the shape used to represent each robot
+
+        view_collision_bins - bool
+            If true will plot the collision bins as dotted lines on the world (Default = False)
+
+        viewing_bounds = tuple
+            Sets the viewing window of the plot in world co-ordinates in the form (min_x,max_x,min_y,max_y) defaults to 10% larger than the world's barriers
+
         """
 
         self.world = world
+        self.pause_toggle = False
+
+        self.internal_time_step = 0
+        self.saving_to_file = False
+
         
         self.figure = plt.figure()
         self.figure.canvas.mpl_connect('key_press_event', self.key_press_handler)
         blank_arr = np.zeros((1,world.num_robots))
 
-        self.robot_lines = plt.plot(blank_arr, blank_arr)
-        self.body_lines = []
-        for r in world.robot_list:
-            self.body_lines.append(gen_circle((0.0,0.0),r.robot_params["radius"],10))
+        self.robot_artists = []
 
+
+        #Set values for **kargs if they are not specified
+
+        if "robot_trail_length" in kargs and kargs["robot_trail_length"]!=0:
+            self.trail_length = int(kargs["robot_trail_length"])
+            self.enable_trails = True
+        else:
+            self.enable_trails = False
+            self.trail_length = 0 
+
+        if "robot_state_cmap" in kargs:
+            self.r_state_cmap = kargs["robot_state_cmap"]
+        else:
+            self.r_state_cmap = { 0 : 'dimgrey',
+                                  1 : 'palegreen',
+                                  2 : 'lightcoral',
+                                  3 : 'blue'}
+
+        self.enable_labels = kargs.setdefault("robot_labels",False)
+
+
+        #Creates patches and trails for each robot based on if they are enabled or not
+        robot_index = 0
+        for r in world.robot_list:
+           
+            if "fast_plot" in kargs and kargs["fast_plot"] == True:
+                self.fast_plot = True
+                body_patch = patches.CirclePolygon((0,0),world.robot_list[robot_index].robot_params["radius"],resolution = 5,linewidth = kargs.setdefault("robot_body_width",0.1))
+                direction_patch = None
+                robot_trail = None
+                robot_label = None
+
+                self.enable_trails = False
+                self.enable_labels = False
+            else: 
+                self.fast_plot = False   
+                body_patch = patches.Circle((0,0),world.robot_list[robot_index].robot_params["radius"],linewidth = kargs.setdefault("robot_body_width",0.1))
+                direction_patch = patches.Wedge((0,0), world.robot_list[robot_index].robot_params["radius"], -15, 15,color = 'black')
+
+                if self.enable_trails:
+                    robot_trail = plt.plot([], [],linewidth = kargs.setdefault("robot_trail_width",0.1))[0]
+                else:
+                    robot_trail = None
+                
+                if self.enable_labels:
+                    robot_label = plt.text(0.0, 0.0, "r{}".format(robot_index),clip_on = True)
+
+                else:
+                    robot_label = None
+
+            self.robot_artists.append((body_patch,direction_patch,robot_trail,robot_label))
+                
+            robot_index+=1
+    
+        self.ax = plt.gca()
+        self.ax.set_aspect('equal')
+
+        for artist_group in self.robot_artists:
+            self.ax.add_artist(artist_group[0])
+            if not artist_group[1] is  None:
+                self.ax.add_artist(artist_group[1])
+        
+        #Plot static elements such as barrier lines and colision bins
         p1 = np.array((world.barriers[0],world.barriers[2]))
         p2 = np.array((world.barriers[1],world.barriers[2]))
         p3 = np.array((world.barriers[1],world.barriers[3]))
         p4 = np.array((world.barriers[0],world.barriers[3]))
-        barrier_line = np.vstack((p1,p2,p3,p4,p1))
-        ax = plt.gca()
-        ax.set_aspect('equal')
+        barrier_line = np.array((p1,p2,p3,p4,p1))
         plt.plot(barrier_line[:,0],barrier_line[:,1])
-        plt.xlim((self.world.barriers[0]*1.1,self.world.barriers[1]*1.1))
-        plt.ylim((self.world.barriers[2]*1.1,self.world.barriers[3]*1.1))
 
-        self.time_text = plt.text(0.025, 1.01, "t = 0.0s",  transform = ax.transAxes, color = 'black')
-        self.pause_toggle = False
-        self.pause_offset = 0
+        if "view_collision_bins" in kargs and kargs["view_collision_bins"] == True:
+            for x in range(self.world.bin_layout[0]):
+                plt.plot((x*self.world.bin_size+self.world.barriers[0],x*self.world.bin_size+world.barriers[0]),(self.world.barriers[2],self.world.barriers[3]),linestyle= '--',linewidth = 0.5,color = 'black')
+            for y in range(self.world.bin_layout[1]):
+                plt.plot((self.world.barriers[0],self.world.barriers[1]),(y*self.world.bin_size+world.barriers[2],y*self.world.bin_size+self.world.barriers[2]),linestyle= '--',linewidth = 0.5,color = 'black')
 
-        self.internal_time_step = 0
-        self.saving_to_file = False
+        if "viewing_bounds" in kargs:
+            plt.xlim((kargs["viewing_bounds"][0],kargs["viewing_bounds"][1]))
+            plt.ylim((kargs["viewing_bounds"][2],kargs["viewing_bounds"][3]))
+        else:
+            plt.xlim((self.world.barriers[0]*1.1,self.world.barriers[1]*1.1))
+            plt.ylim((self.world.barriers[2]*1.1,self.world.barriers[3]*1.1))
 
+        self.time_text = plt.text(0.025, 1.01, "t = 0.0s",  transform = self.ax.transAxes, color = 'black')
+
+        self.rendering_stats = False
+    def update_robot_patch(self,robot_pose,body_patch,direction_patch):
+        """
+        Updates the plotting elements representing the robot
+
+        Parameters
+        ---------
+        robot_pose - np,array
+            Robot's pose in the form (x,y,rotation)
+        body_patch - matplotlib.patches.Circle or matplotlib.patches.CirclePolygon depending on fast_plot
+            Plotting element representing robot's body
+        direction_patch - matplotlib.patches.Wedge or None depending on fast_plot
+            Plotting element representing robot's direction
+        """
+        if not self.fast_plot:
+            body_patch.center = tuple(robot_pose[:2])
+            dir_patch_angle = robot_pose[2]
+            dir_patch_pos = robot_pose[:2] + 0.5*body_patch.radius*np.array((np.cos(dir_patch_angle),np.sin(dir_patch_angle)))
+
+            direction_patch.set_center(tuple(dir_patch_pos))
+            direction_patch.theta1 = np.rad2deg(dir_patch_angle+np.pi) - 15
+            direction_patch.theta2 = np.rad2deg(dir_patch_angle+np.pi) + 15
+        
+        else:
+            body_patch.xy = tuple(robot_pose[:2])
+
+        
     def key_press_handler(self,event):
         """
         Key Handler call back for the figure
@@ -563,207 +748,351 @@ class WorldAnimation():
 
         """
         sys.stdout.flush()
-        if event.key == 't':
+        if event.key == 'u':
             self.pause_toggle = not self.pause_toggle
             print("pause_toggle {}".format(self.pause_toggle))
-        if event.key == 'r':
-            if self.pause_toggle:
-                self.internal_time_step -= 1   
         if event.key == 'y':
             if self.pause_toggle:
-                self.internal_time_step += 1 
+                self.increase_internal_time(-world.data_log_period)
+        if event.key == 'i':
+            if self.pause_toggle:
+                self.increase_internal_time(world.data_log_period)
+
+              
+    def update_plot(self,time):
+        """
+        Updates the plot elements to reflect the world at time_step
+        
+        Parameters
+        ---------
+            time - Time to plot the world at
+        """
+
+        self.time_text.set_text("t = {:4.2f}s".format(time)) 
 
 
-    def animation_callback(self,time_step):
+        robot_index = 0
+        trail_start_index = np.clip(world.get_data_log_index_at_time(time -  self.trail_length),0,None)
+        current_data_log_index = world.get_data_log_index_at_time(time)
+
+        trail_data = self.world.get_data_log_by_index(trail_start_index,current_data_log_index)
+
+        for artist_group in self.robot_artists:
+            
+            robot_data = self.world.get_data_log_at_time(time)[robot_index][0,:]
+            self.update_robot_patch(robot_data[:3],artist_group[0],artist_group[1])
+            
+            if not self.r_state_cmap is None:
+                artist_group[0].set_facecolor(self.r_state_cmap.setdefault(robot_data[3],'red'))
+
+            if self.enable_trails and not trail_data is None:
+                artist_group[2].set_data(trail_data[robot_index,:,:2].T)
+            
+            if self.enable_labels:
+                 artist_group[3].set_position(tuple(robot_data[:2]))
+            robot_index+=1
+
+    def plot_snapshot(self,time):
+        """
+        Plots a snapshot of the world at a particular timestep. Equivalent to calling WorldAnimation.update_plot(time_step)
+        
+        Parameters
+        ---------
+            time - Time step to plot the world at
+        """
+
+
+        self.update_plot(time)
+
+    def increase_internal_time(self,increase):
+        """
+        Increases the internal time counter and performs wrapping between start and end times of the animation
+
+        Parameters
+        ---------
+        increase - float
+            Amount to increase the counter by (can be negative)
+
+        """
+        self.internal_time_counter += increase
+        if self.internal_time_counter > self.final_time:
+            self.internal_time_counter = self.start_time
+        if self.internal_time_counter < self.start_time:
+            self.internal_time_counter = self.final_time
+    def animation_callback(self,frame_time):
         """
         Callback for FuncAnimation
         
         Parameters
         ---------
-        time_step - int
+        frame_time - float
             UNUSED - Required argument form func animation, WorldAnimation uses an internal counter to allow for pausing and skipping functionality.
 
         """
 
+        self.update_plot(self.internal_time_counter)
+
         #Increases internal counter if not paused
-
-
-        self.time_text.set_text("t = {:4.2f}s".format(self.internal_time_step*world.dt)) 
-
-
-        #Updates robot's lines by using the body points generated about the origin then offsetting by the robot's position stored in the SimulationWorld's data log
-        robot_index = 0
-        for r_line in self.robot_lines:
-            p = np.tile(self.world.data_log[robot_index,self.internal_time_step,:2],(self.body_lines[robot_index].shape[0],1))+self.body_lines[robot_index]
-            r_line.set_data(p.T)
-            robot_index+=1
-    
         if not self.pause_toggle:
-            self.internal_time_step += 1
-    
-        self.internal_time_step = self.internal_time_step % self.world.t_step
+            self.increase_internal_time(self.time_inc)
+
         if self.saving_to_file:
-            print("Saving animation... {}/{} = {:4.2f}%".format(self.internal_time_step,self.world.t_step,(float(self.internal_time_step)/self.world.t_step)*100.0))
-    def start_animation(self,save_path = None):
+            print("Saving animation... {:4.2f}s out of {:4.2f}s = {:4.2f}%".format(self.internal_time_counter,self.final_time,((self.internal_time_counter-self.start_time)/self.time_inc)/self.rendering_times.shape[0]*100.0))
+        elif self.rendering_stats:
+            print("Animating drawing speed = {:4.2f} * desired_speed".format((time.time()-self.frame_start_time)/self.interval))
+            self.frame_start_time = time.time()
+    def start_animation(self,start_time = None,final_time = None, time_between_frames = None, speed = 1.0,save_path = None):
         """
         Starts the animation by calling FuncAnimation which then repeatidly calls animation_callback to animate the plot
 
         Parameters 
         ----------
+        start_time  - float
+            Start time of the simulation, will default to zero (start if simulation)
+
+        final_time  - float
+            End time of the simulation, will default to the end of the simulation
+
+
+        time_between_frames - float
+            The time between each frame rendered (in terms of simulation time) if None will default to the world's data log period. For best results this should be a multiple of world's data log period
+
+        speed - float
+            Playback speed of the animation, ie. the period between rendered frames 1.0 will playback at real time, while 2.0 will playback at double speed. 
+            NOTE:
+                The figure animation may run slower than this due to the large number of plotting elements to update. But when saving to mp4 the animation will playback correctly
+                Might be best to reduce the time_between_frames at highers playback speeds 
+
         save_path - str
-            Saves the animation in .mp4 formate to a save path relative to the current python path (sys.path[0]). This should be the folder the script is is in but isn't garaunteed.
+            Saves the animation in .mp4 formate to a save path
         """
-        sim_ani = animation.FuncAnimation(self.figure,self.animation_callback, range(0,world.t_step,1), fargs=None,interval=50, blit=False)
+        if start_time is None:
+            self.start_time = 0.0
+        else:
+            self.start_time = start_time
+
+        if final_time is None:
+            self.final_time = self.world.t_step*self.world.dt
+        else:
+            self.final_time = final_time
+
+        time_invalid = False 
+        if self.start_time < 0.0:
+            print("Start time less than zero!") 
+            time_invalid = True
+        if self.final_time < 0.0:
+            print("Final time less than zero!")
+            time_invalid = True
+        if self.start_time > self.final_time:
+            print("Start time before final time!")
+            time_invalid = True
+        
+        if time_invalid:
+            print("Invalid start or end time for animation! Defaulting to full simulaton period")
+            self.start_time = 0.0
+            self.final_time = self.world.t_step*self.world.dt
+
+
+
+        if time_between_frames is None:
+            self.time_inc = world.data_log_period
+        else:
+            self.time_inc = time_between_frames
+
+        self.internal_time_counter = self.start_time
+        
+        self.rendering_times = np.arange(self.start_time,self.final_time,self.time_inc)
+        
+
+
+        self.interval = self.time_inc/speed
+
+        init_func = partial(self.update_plot,0.0)
+
+        sim_ani = animation.FuncAnimation(self.figure,self.animation_callback,self.rendering_times, init_func= init_func,fargs=None,interval = self.interval*1000, blit=False)
         if  save_path is not None: 
-            FFwriter = animation.FFMpegWriter(fps=30, extra_args=['-vcodec', 'libx264'])
+            FFwriter = animation.FFMpegWriter(fps = speed/self.time_inc,extra_args=['-vcodec', 'libx264'])
             self.saving_to_file = True 
-            sim_ani.save(os.path.join(sys.path[0],save_path), writer = FFwriter)
+            sim_ani.save(save_path, writer = FFwriter)
             self.saving_to_file = False
+
+        if self.rendering_stats:
+            self.frame_start_time = time.time()
         print("Starting Animation...")
         print("Press t while animation is running to pause it, press again to resume playback")
         print("Press r and y to skip one timestep forwards/backwards when paused")
         plt.show()
 
 
-def plot_boid_debug(world,robot_indexes):
-    """
-        Used for visualisng the different forces acting on a set of boid_flocker robots at the current timestep
-
-        NOTE:
-            This function uses the robot's current state, to visulise the forces over time would require this data to be stored in the world's data log
-        Parameters
-        ----------
-        world - SimulationWorld
-            The world the robot's are in
-        robot_indexes - list
-            Indexes of the robot's visualisations should be drawn for
-
-    """
-    for i in robot_indexes:
-        for nb in world.robot_list[i].neighbour_indexs:
-            plt.plot((world.robot_list[i].position[0],world.robot_list[nb].position[0]),(world.robot_list[i].position[1],world.robot_list[nb].position[1]),color='purple',linewidth = 0.5,linestyle = '--')
-        plt.arrow(world.robot_list[i].position[0],world.robot_list[i].position[1],world.robot_list[i].cohesion_force[0],world.robot_list[i].cohesion_force[1],color = 'r')
-        plt.arrow(world.robot_list[i].position[0],world.robot_list[i].position[1],world.robot_list[i].allignment_force[0],world.robot_list[i].allignment_force[1],color = 'b')
-        plt.arrow(world.robot_list[i].position[0],world.robot_list[i].position[1],world.robot_list[i].seperation_force[0],world.robot_list[i].seperation_force[1],color = 'g')
-        plt.arrow(world.robot_list[i].position[0],world.robot_list[i].position[1],world.robot_list[i].centre_force[0],world.robot_list[i].centre_force[1],color = 'pink')
-        
-        plt.arrow(world.robot_list[i].position[0],world.robot_list[i].position[1],world.robot_list[i].target_vect[0],world.robot_list[i].target_vect[1],color = 'yellow')
-        plt.arrow(world.robot_list[i].position[0],world.robot_list[i].position[1],world.robot_list[i].velocity[0],world.robot_list[i].velocity[1],color = 'grey',linestyle = '--')
-        plt.plot(world.robot_list[i].neighbour_centroid[0],world.robot_list[i].neighbour_centroid[1],marker = 'x')
 
 
 if __name__ == "__main__":
 
-
-    #To create a simulation first create a SimulationWorld object
-    world = SimulationWorld()
-
-
-
-
-    #You can seed the simulation to ensure it performs the same steps every time and reproduce bugs
-    #np.random.seed(0)
-    world.barriers = np.array((-30,30,-30,30))
-
-    ########################   Random walking robot parameter dictionary   #########################
+    #Simulate the world or load from the "world.pickle" file in this scripts directory
+    simulate_world = True
+    if simulate_world:
+        #To create a simulation first create a SimulationWorld object
+        world = SimulationWorld()
 
 
-    robot_params_rw = {  "algorithm"             : "random_walker",
-                      "dir_change_distro"     : ("gaussian",0.0,0.5),
-                      "step_len_distro"       : ("gaussian",0.0,0.1),
-                      "max_speed"             : 1.0,
-                      "radius"                : 0.1
-                    }
-    
-    ########################   Boid flocking robot parameter dictionary   ########################
-
-    robot_params_boid = {  "algorithm"             : "boid_flocker",
-
-                          "neighbourhood_mode"    : "distance",
-                          "neighbourhood_distance": 3.0,
 
 
-                          # "neighbourhood_mode"    : "nearist",
-                          # "neighbourhood_size"    : 1.0,
-
-                          "seperation_dist"       : 1.0,
-
-                          "update_period"           : 0.1,
-                          
-                          "cohesion_coefficient"    : 30.0,
-                          "alignment_coefficient"   : 60.0,
-                          "seperation_coefficient"  : 20.0,
-
-                          "central_pull_coefficient": 10.0,
-
-                          "rotational_p_control"  : 0.9,
+        #You can seed the pseudo random number generator before simulation to ensure it performs the same steps every time and reproduce bugs
+        #np.random.seed(0)
 
 
+        ########################   Random walking robot parameter dictionary   #########################
+        #Random walking is a series of displacements and changes in heading. Each of these can be described with a certain propbablility distrobution leading to
+        #different types of random motion such as brownian motion, levy walk and correlated random walks
+
+        robot_params_rw = {  "algorithm"             : "random_walker",
+                          "dir_change_distro"     : ("gaussian",0.0,0.5),
+                          "step_len_distro"       : ("gaussian",0.0,0.1),
                           "max_speed"             : 1.0,
                           "radius"                : 0.1
                         }
+        
+        ########################   Boid flocking robot parameter dictionary   ########################
+        #Renyolds flocking algorithm uses 3 rules to cause flocking behavour. This implimentation uses an additional rule which makes the robots head towards the centre 
+        #of the world based on their distance
+        robot_params_boid = {  "algorithm"             : "boid_flocker",
 
-    #Robots are created using the dictionaries above as it allows all the parameters of the robot to view in on data structure
-    #r = SimulationRobot(robot_params_rw) # Uncommment to switch to random walking robots
-    r = SimulationRobot(robot_params_boid)
-    
-    #The required simulation time step  and collision bin size are then calculated. These robots currently go at fixed size but if there speed could vary the fasted possible velocity should be used here
-
-    #This ensure a robot can't move through another robot during a single time step
-    world.dt = r.robot_params["radius"]/r.robot_params["max_speed"]
-    #This ensures no robot can cross into another colision bin during a single timestep
-    world.bin_size = (r.robot_params["radius"] *2.1 + (r.robot_params["max_speed"])*world.dt+0.1)
-    
-    #Now that we've set the bin size we can initialise the collision bins    
-    world.robot_collisions = True
-    world.init_physics()
- 
-
-    #Adds our robot to the world
-    world.populate(100,r)
-
-    #Initialises our robot's positions are the start  of the simulation, current this is a the smallest possible square the robots can occuoy with 0.25m inbetween their bodies
-    world.arrange(("auto_box",(0.0,0.0),0.25,0.0))
+                              "neighbourhood_mode"    : "distance",
+                              "neighbourhood_distance": 3.0,
 
 
-    #The number of steps we will simulate
-    #This is the time we want to simulate divided by the amount of time we simulate each time step (dt)
-    steps_num = int(1*60.0/world.dt)
+                              # "neighbourhood_mode"    : "nearist",
+                              # "neighbourhood_size"    : 1.0,
 
-    #If true this pauses the simulation every 10% of the time being simulated and and plots the worlds state - useful for debugging
-    plot_snap_shots = False
-    snap_shot_steps = steps_num/10
+                              "seperation_dist"       : 1.0,
 
-    #Execution time stats, how long on average a time_step takes to simulate and the longest time taken to simulate a time step
-    exec_times = 0.0
-    max_exec_time = 0.0
+                              "update_period"           : 0.1,
+                              
+                              "cohesion_coefficient"    : 30.0,
+                              "alignment_coefficient"   : 60.0,
+                              "seperation_coefficient"  : 20.0,
 
-    world.init_data_log(steps_num)
-    for step in range(steps_num-1):
-        start_time = time.time()
-        world.time_step()
-        dt = (time.time() - start_time)
-        exec_times+= dt
-        if dt > max_exec_time:
-            max_exec_time = dt
+                              "central_pull_coefficient": 30.0,
 
-        if plot_snap_shots and step%snap_shot_steps == 0:
-            #set bounds in the plot_world function to the following to focus on robot i 
-            #bounds = np.array((-1,1,-1,1))+np.repeat(world.robot_list[i].position,2)
-            world.plot_world(step+1,physics_debug = True)
-            #Unccoment to see boid force visualisations in the snap shots
-            #plot_boid_debug(world,[0,])
-            #plt.show()
 
-        print("Simulating... {:4.2f}%".format(float(step)/steps_num*100.0))
-    world.save("world.pickle")
-    print("Average execution time {}s per timestep. Maximum time per timestep = {}s".format(exec_times/float(steps_num),max_exec_time))
+                              "rotational_p_control"  : 0.9,
+                              "max_speed"             : 1.0,
+                              "radius"                : 0.1 
+                            }
+        ########################   Firefly inspired synchornisation robot parameter dictionary   ########################
+        #These robots will change their state with a certain period (flash_period) but will start out of sync. By increasing their activation
+        #value when they see nearby flashes they aim to synchronise their flashes (have the same phase)
 
+        robot_params_firefly = {  "algorithm"             : "firefly_sync",
+
+                                  "neighbourhood_mode"    : "distance",
+                                  "neighbourhood_distance": 1.0,
+
+
+                                  # "neighbourhood_mode"    : "nearist",
+                                  # "neighbourhood_size"    : 20,
+                                 
+                                  "update_period"           : 0.1,
+                                 
+                                  "flash_period"                : 3.0,                          
+                                  "flash_on_duration"           : 0.5,
+                                  "activation_increase"         : 0.02,
+
+                                  "static"                 : True,
+
+                                  "dir_change_distro"     : ("uniform",-np.pi,np.pi),
+                                  "step_len_distro"       : ("gaussian",0.0,0.2),
+
+                                  "max_speed"             : 1.0,
+                                  "radius"                : 0.1
+                                }
+        #Robots are created using the dictionaries above as it allows all the parameters of the robot to viewed in on data structure
+        
+        #r = SimulationRobot(robot_params_rw) # Uncommment to switch to random walking robots
+        #r = SimulationRobot(robot_params_boid)
+        
+        r = SimulationRobot(robot_params_firefly) #Uncomment to switch to a firefly synchronisation demo
+
+        #The required simulation time step  and collision bin size are then calculated. These robots currently go at fixed size but if there speed could vary the fasted possible velocity should be used here
+        world.calculate_neighbours = True
+        #This ensure a robot can't move through another robot during a single time step
+        world.dt = r.robot_params["radius"]/r.robot_params["max_speed"]
+        #This ensures no robot can cross into another colision bin during a single timestep
+        world.bin_size = (r.robot_params["radius"]*2.0 + (r.robot_params["max_speed"])*world.dt+0.01)
+        
+        #Now that we've set the bin size we can initialise the collision bins    
+        world.robot_collisions = False
+        world.init_physics()
+     
+
+        #Adds our robot to the world
+        world.populate(100,r)
+
+        #Initialises our robot's positions are the start  of the simulation, currently this is a the smallest possible square the robots can occuoy with 0.25m inbetween their bodies
+
+        world.arrange(mode = "smallest_square",center_pos = (0.0,0.0),robot_separation = 0.1, added_noise = 0.0)
+        #world.arrange(mode = "uniform_box",center_pos = (0.0,0.0),robot_separation = 0.1, added_noise = 0.0,box_size = (world.barriers[1]-world.barriers[0],world.barriers[3]-world.barriers[2]))
+
+
+        #The number of steps we will simulate
+        #This is the time we want to simulate divided by the amount of time we simulate each time step (dt)
+#        steps_num = int(2*60.0/world.dt)
+        steps_num = int(2*60.0/world.dt)
+
+        #If will create a window that shows the simulation's state evert so often (dictated by snap_shot_steps) - useful for debugging
+        plot_snap_shots = False
+        snap_shot_steps = 0.2/world.dt
+
+        #Execution time stats, how long on average a time_step takes to simulate and the longest time taken to simulate a time step
+        exec_times = 0.0
+        max_exec_time = 0.0
+        sim_start_time = time.time()
+
+        #Pre-allocates memory for data logging. Saving data every timestep can result in very large file sizes so we can opt to only do it every 2 timesteps
+        #world.data_log_period = world.dt*2
+        world.init_data_log(steps_num)
+
+
+        if plot_snap_shots:
+            world_anim_snapshot = WorldAnimation(world,fast_plot = True)
+            plt.show(block = False)
+        
+        print("Starting simulation")
+        print("Swarm Size : {:d} dt = {:4.2f} measurement dt : {:4.2f}".format(world.num_robots,world.dt,world.data_log_period))
+        #Main simulation loop
+        for step in range(steps_num-1):
+            start_time = time.time()
+            world.time_step()
+            dt = (time.time() - start_time)
+            exec_times+= dt
+            if dt > max_exec_time:
+                max_exec_time = dt
+
+            if step%max((1,steps_num/100))==0:
+                print("Simulating... {:4.2f}% ETA {:4.2f} mins".format(float(step)/steps_num*100.0,(steps_num-step-1)*(exec_times/(step+1))/60.0))
+            if plot_snap_shots and step%snap_shot_steps == 0:
+                world_anim_snapshot.plot_snapshot(step)
+                plt.draw()
+                plt.pause(0.01)
+
+        print("Average execution time {:4.4f}s per timestep. Maximum time per timestep = {:4.4f}s Time taken {:4.2f}s".format(exec_times/float(steps_num),max_exec_time,time.time()-sim_start_time))
+
+        #Saves the world using pythons pickle format
+        world.save("world.pickle")
+
+    world = SimulationWorld().load("world.pickle")
     #Plots the final state of the simulation and animates
-    final_state_fig = plt.figure()
-    world.plot_world(step,plot_robot_trajectories = False)
+    world_anim_snapshot = WorldAnimation(world)
+    world_anim_snapshot.plot_snapshot(world.dt*world.t_step)
     plt.title("Final simulation state")
 
-    world_anim = WorldAnimation(world)
-    world_anim.start_animation("Simulation_animation.mp4")
+    robot_cmap =      { 0 : 'dimgrey', 
+                        1 : 'palegreen',
+                        2 : 'lightcoral',
+                        3 : 'blue'}   
+
+    
+    world_anim_final = WorldAnimation(world,robot_trail_length = 0, robot_trail_width = 0.1,robot_state_cmap = robot_cmap, robot_labels = False, view_collision_bins = False, viewing_bounds = world.barriers,fast_plot = False )
+
+    world_anim_final.start_animation(save_path = "world_animation.mp4",start_time = None,final_time = None,speed = 1.0,time_between_frames = None)
 

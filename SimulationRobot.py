@@ -42,9 +42,11 @@ class SimulationRobot:
         self.velocity = np.zeros(2)
         
         #Timer can be used to limit the rate at which of control loop executes
-
         self.timer = 0   
+        self.robot_state = 0
+
         self.robot_params = robot_params
+
 
         #These are assigned by the world class
         self.robot_index = None
@@ -57,10 +59,18 @@ class SimulationRobot:
         """
 
         if self.robot_params["algorithm"] == "boid_flocker":
-            self.timer = -np.random.uniform(0.0,self.robot_params["update_period"])
+
+            #Initialises boids so they don't all update at the same time
+            self.timer = np.random.uniform(0.0,self.robot_params["update_period"])
             rand_dir = np.random.uniform(-np.pi,np.pi)
             self.target_vect = np.array((np.cos(rand_dir),np.sin(rand_dir)))
             self.neighbour_indexs = []
+        if self.robot_params["algorithm"] == "firefly_sync":
+            #self.timer = np.random.uniform(0.0,self.robot_params["update_period"])
+            self.movement_timer = 0
+            self.activation_value = np.random.uniform(0.0,1.0)
+            self.led_timer = 0
+            self.prev_flashes_detected = 0
     def movement_update(self,dt):
 
         """
@@ -75,7 +85,20 @@ class SimulationRobot:
         """
         self.prev_position = self.position
         self.position = self.position + self.velocity*dt 
+    def get_neighbours(self,distance_matrix):
+        neighbour_indexs = []
+        #There are two ways of defining your neighbourhood, X closest robots to you and all the robots that are within X distance. Both are implimented here and can be changed with the "neighbourhood_mode" key  
+        if self.robot_params["neighbourhood_mode"] == "distance":
+            #we select robot indexes if their coressponding distance is less than our neighbourhood distance
+            neighbour_indexs = np.arange(0,distance_matrix.shape[0])[distance_matrix[self.robot_index,:] < self.robot_params["neighbourhood_distance"]]
+            
+        elif self.robot_params["neighbourhood_mode"] == "nearist" and self.robot_params["neighbourhood_size"] > 0:
+            #argpartiion sorts the distance matrix in such a way that we are garanteed to have the X closest distances, but avoids sorting the whole thing
+            neighbour_indexs = np.argpartition(distance_matrix[self.robot_index,:],self.robot_params["neighbourhood_size"])
+            neighbour_indexs = neighbour_indexs[:self.robot_params["neighbourhood_size"]+1]
 
+        neighbour_indexs = neighbour_indexs[neighbour_indexs!= self.robot_index]
+        return neighbour_indexs 
 
     def control_update(self,dt,world = None):
         """
@@ -86,14 +109,14 @@ class SimulationRobot:
             The world this robot exists within. Used to detect other objects in the world such as other robots and barriers
         """
 
-        self.timer +=dt 
+        self.timer -=dt 
 
         if self.robot_params["algorithm"] == "random_walker":
             #Random walker consist of picking a new direction randomly at random time intervals. Step length is dictated by the PDF in "step_len_distro" 
             #Direction changes are decided by "dir_change_distro"
 
-            if (self.timer > 0):
-                self.timer = -sample_distro(self.robot_params["step_len_distro"])
+            if (self.timer <= 0):
+                self.timer = sample_distro(self.robot_params["step_len_distro"])
                 self.rotation  += sample_distro(self.robot_params["dir_change_distro"])
                 self.velocity = np.array((np.cos(self.rotation),np.sin(self.rotation)))*self.robot_params["max_speed"]
         
@@ -107,27 +130,17 @@ class SimulationRobot:
             #This implimentation contains an additional rule
             #Centre homing - Move towards the centre of the world (0,0)
 
-            if (self.timer > 0):
-                self.timer = -self.robot_params["update_period"]
+            if (self.timer <= 0):
+                self.timer = self.robot_params["update_period"]
 
-                self.neighbour_indexs =[]
+                self.neighbour_indexs = self.get_neighbours(world.world_sense_data["robot_distances"])
 
-                #There are two ways of defining your neighbourhood, X closest robots to you and all the robots that are within X distance. Both are implimented here and can be changed with the "neighbourhood_mode" key  
-                if self.robot_params["neighbourhood_mode"] == "distance":
-                    self.neighbour_indexs = np.arange(0,world.num_robots)[world.world_sense_data["robot_distances"][self.robot_index,:] < self.robot_params["neighbourhood_distance"]]
-                    self.neighbour_indexs = self.neighbour_indexs[self.neighbour_indexs != self.robot_index]
-
-                elif self.robot_params["neighbourhood_mode"] == "nearist" and self.robot_params["neighbourhood_size"] > 0:
-                    self.neighbour_indexs = np.argpartition(world.world_sense_data["robot_distances"][self.robot_index,:],self.robot_params["neighbourhood_size"])
-                    self.neighbour_indexs = self.neighbour_indexs[:self.robot_params["neighbourhood_size"]+1]
-                    self.neighbour_indexs = self.neighbour_indexs[self.neighbour_indexs!= self.robot_index]
 
 
                 #If we have neighbours
                 if len(self.neighbour_indexs) != 0:
                     
                     #Get neighbour's distances, bearings and calculate their centroid
-
                     self.neighbour_dists = world.world_sense_data["robot_distances"][self.robot_index][self.neighbour_indexs]
                     self.neighbour_bearings = world.world_sense_data["current_robot_poses"][self.neighbour_indexs,2]
                     self.neighbour_centroid = np.mean(world.world_sense_data["current_robot_poses"][self.neighbour_indexs,:2],axis = 0)
@@ -148,10 +161,9 @@ class SimulationRobot:
 
                 #Calculate our distance from the centre
                 dist_from_centre = np.sqrt(np.sum(np.power(self.position,2.0)))
-                if dist_from_centre > 0: 
+                if dist_from_centre > 0:  #Avoid dividing by zero
                     self.centre_force = -self.position/dist_from_centre
                 else:
-                    #Avoid a divide by zero
                     self.centre_force = np.zeros(2)
 
                 #The final direction we want the robot to head in is the sum of each of the four force multiplied by their coefficients
@@ -176,3 +188,40 @@ class SimulationRobot:
             self.velocity = np.array((np.cos(self.rotation),np.sin(self.rotation)))*self.robot_params["max_speed"]
 
 
+        elif self.robot_params["algorithm"] == "firefly_sync":
+            #Firefly synchronisation is based on each agent moving its phase of flashing forward when its neighbours flash. Here we use robot_state to represent and LED where 0 == LED off and 1 == LED on
+
+            #Each agent increases an internal activation value every time step when this value reaches 1 the agent flashes its led and resets its activation to zero
+            #Every update cycle the agent suverys its neighbourhood for flashes. This algorithm takes the difference between the last number of activated neighbours and the current number to only count new flashes. 
+            #New flashes increase the agent's activation by an amount dictated by activation_increase known as the coupling constant
+            
+            #When the led turns on it does so for a certain period which is more realistic for robotic agents due to latency agents
+
+            #Further discussion of the algorithm implimentation can be found in : https://ieeexplore.ieee.org/abstract/document/5166479
+
+            if not self.robot_params["static"]: #Moving can help synchronisation as it changes the neighbour graph, if true activates a random walk
+                self.movement_timer -=dt
+                if self.movement_timer <= 0:
+                    self.movement_timer = sample_distro(self.robot_params["step_len_distro"])
+                    self.rotation  += sample_distro(self.robot_params["dir_change_distro"])
+                    self.velocity = np.array((np.cos(self.rotation),np.sin(self.rotation)))*self.robot_params["max_speed"]
+            new_flashes = 0
+            
+            self.led_timer -= dt
+            if self.robot_state == 1 and self.led_timer <=0: # Turns the robot's 'LED' on and off
+                self.robot_state = 0
+
+            if (self.timer <= 0): #Detects new flashes
+                self.timer = self.robot_params["update_period"]
+                self.neighbour_indexs = self.get_neighbours(world.world_sense_data["robot_distances"])
+                flashes_detected = np.count_nonzero(world.world_sense_data["current_robot_states"][self.neighbour_indexs] == 1)
+                new_flashes = max(0,flashes_detected - self.prev_flashes_detected)
+                self.prev_flashes_detected = flashes_detected
+
+            #Increase activation value according to formulat in https://ieeexplore.ieee.org/abstract/document/5166479
+            self.activation_value+= dt/self.robot_params["flash_period"] + self.robot_params["activation_increase"]*new_flashes*self.activation_value
+
+            if (self.activation_value > 1.0):
+                self.activation_value = 0.0
+                self.robot_state = 1
+                self.led_timer   = self.robot_params["flash_on_duration"]
