@@ -22,12 +22,15 @@ python SimulationWorld
 
 Examples:
 Random walking
+
 ![Random Walkers Demo](https://i.imgur.com/FRZGdR6.gif)
 
 Reynolds Flocking
+
 ![Flocking Demo](https://i.imgur.com/nKHXBAW.gif)
 
 Firefly synchronisation
+
 ![Sync Demo](https://i.imgur.com/fMhaoQ0.gif)
 
 Notes
