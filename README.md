@@ -22,7 +22,6 @@ python SimulationWorld
 
 Examples:
 Random walking
-
 ![Random Walkers Demo](https://i.imgur.com/FRZGdR6.gif)
 
 Reynolds Flocking
