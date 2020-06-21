@@ -19,3 +19,22 @@ Tested on
 Run the demo run SimulationWorld from the teriminal like so:
 
 python SimulationWorld
+
+Examples:
+Random walking
+<video src="https://i.imgur.com/ky81f5n.mp4" width="320" height="200" controls preload></video>
+
+Reynolds Flocking
+<video src="https://i.imgur.com/ieRH3Lr.mp4" width="320" height="200" controls preload></video>
+
+Firefly synchronisation
+<video src="https://i.imgur.com/fkgIydh.mp4" width="320" height="200" controls preload></video>
+
+Notes
+
+Currently neighbours are calculated using scipy.spatial.distance.cdist which computes every pair of distances between the robots, but this could be optimised using the collision box structure. But this call remains fairly fast despite large numbers of robots (>1000)
+
+
+
+
+
