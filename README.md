@@ -22,13 +22,10 @@ python SimulationWorld
 
 Examples:
 Random walking
-<video src="https://i.imgur.com/ky81f5n.mp4" width="320" height="200" controls preload></video>
-
+<video src="video/small_random.mp4" width="320" height="200" controls preload></video>
 Reynolds Flocking
-<video src="https://i.imgur.com/ieRH3Lr.mp4" width="320" height="200" controls preload></video>
 
 Firefly synchronisation
-<video src="https://i.imgur.com/fkgIydh.mp4" width="320" height="200" controls preload></video>
 
 Notes
 
