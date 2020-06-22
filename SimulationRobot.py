@@ -13,8 +13,8 @@ def sample_distro(distro_tuple):
 
     Returns
     ---------
-        float
-            the number generated from the PDF
+    float
+        the number generated from the PDF
 
 
     """

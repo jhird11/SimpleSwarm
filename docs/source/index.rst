@@ -11,12 +11,9 @@ The simulation world and data logging are contained within the SimulationWorld c
 
 To see how to setup the SimulationWorld with data logging and then animate the result see demo.py
 
-SimulationWorld
-===================
-.. automodule:: SimulationWorld
-   :members:
+.. toctree::
+   :maxdepth: 2
 
-SimulationRobot
-=====================
-.. automodule:: SimulationRobot
-   :members:
+   SimulationWorld
+   SimulationRobot
+   
