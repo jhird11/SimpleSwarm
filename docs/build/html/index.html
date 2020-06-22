@@ -34,16 +34,505 @@
             
   <div class="section" id="welcome-to-simpleswarm-s-documentation">
 <h1>Welcome to SimpleSwarm’s documentation!<a class="headerlink" href="#welcome-to-simpleswarm-s-documentation" title="Permalink to this headline">¶</a></h1>
-<div class="toctree-wrapper compound">
+<p>SimpleSwarm is a python based simulator for modelling swarms of robots. It models each robot as disks with kinematic physics.</p>
+<p>The simulation world and data logging are contained within the SimulationWorld class. This is then populated by instances of SimulationRobot which represent individual robots and their local rules</p>
+<p>To see how to setup the SimulationWorld with data logging and then animate the result see demo.py</p>
 </div>
-</div>
-<div class="section" id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
-<ul class="simple">
-<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
-<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
-<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+<div class="section" id="module-SimulationWorld">
+<span id="simulationworld"></span><h1>SimulationWorld<a class="headerlink" href="#module-SimulationWorld" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="SimulationWorld.SimulationWorld">
+<em class="property">class </em><code class="descclassname">SimulationWorld.</code><code class="descname">SimulationWorld</code><a class="headerlink" href="#SimulationWorld.SimulationWorld" title="Permalink to this definition">¶</a></dt>
+<dd><p>The main class which represents the simulation enviroment.</p>
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.arrange">
+<code class="descname">arrange</code><span class="sig-paren">(</span><em>mode='smallest_square'</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.arrange" title="Permalink to this definition">¶</a></dt>
+<dd><p>Arranges the robots into a starting configuration. Should be called just before the first time_step()</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> (<em>tuple</em>) – <p>Determines how the robots are arranged</p>
+<p>(“auto_box”, box_position, robot_spacing, rand_amount) will organise the robots in the smallest possible square centered on box_position such that robots are separated by robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset of magnitude rand_amount to each robot’s position</p>
+<p>NOTE:
+This method assumes all robots are the same size based on the first robot in robot list
+Robot separation is the distance between the edges of the robots rather than their centres</p>
+<p>Robots have uniformally distributed rotations</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.assign_robot_to_bin">
+<code class="descname">assign_robot_to_bin</code><span class="sig-paren">(</span><em>robot</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.assign_robot_to_bin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assigns a robot to the colision grid. Each robot’s position in the colision grid is stored in the robot’s bin_index parameter</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">The robot’s position the collision grid</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">tuple(int,int)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.check_barriers">
+<code class="descname">check_barriers</code><span class="sig-paren">(</span><em>robot_radius</em>, <em>robot_position</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.check_barriers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if a robot is in collision with the world’s outer barriers</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>robot_size</strong> (<em>float</em>) – Radius of robot</li>
+<li><strong>robot_position</strong> (<em>np.array</em>) – x,y position of robot</li>
 </ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">True if robot is in collision with outer barriers</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">bool</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.check_robot_collision">
+<code class="descname">check_robot_collision</code><span class="sig-paren">(</span><em>robot1_pos</em>, <em>robot2_pos</em>, <em>robot1_radius</em>, <em>robot2_radius</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.check_robot_collision" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if robots 1 and 2 are in collision</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>robot1_pos</strong> (<em>np.array</em>) – x,y position of robot 1</li>
+<li><strong>robot2_pos</strong> (<em>np.array</em>) – x,y position of robot 2</li>
+<li><strong>robot1_radius</strong> (<em>float</em>) – Radius of robot 1</li>
+<li><strong>robot2_radius</strong> (<em>float</em>) – Radius of robot 2</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">True if robots are in collision with each other, otherwise False</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">bool</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.get_data_log_at_time">
+<code class="descname">get_data_log_at_time</code><span class="sig-paren">(</span><em>time</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.get_data_log_at_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the data_log entry coresponding to the simulation time specified by time</p>
+<p>NOTE
+time is rounded down to the nearest time when data was logged. So the data log entry will never occur after the specified time
+:param time: Simulation time in seconds to get the data index for
+:type time: float</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">data_log entry at “time”</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">np.array</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.get_data_log_by_index">
+<code class="descname">get_data_log_by_index</code><span class="sig-paren">(</span><em>index_start</em>, <em>index_end</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.get_data_log_by_index" title="Permalink to this definition">¶</a></dt>
+<dd><p>Accesses the data log between index_start and index_end (non inclusive). Indexes are clipped so they remain in the simulation period.
+This means that accessing the data log using this function at indexes beyond the end of the simulation will result in accessing the data log at the last data_log entry.</p>
+<p>See get_data_log_index_at_time to convert between simulation time and data log indexes</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>index_start</strong> (<em>index of the data log to begin access at</em>) – </li>
+<li><strong>index_end</strong> (<em>index of the data log to end access at</em><em> (</em><em>not included</em><em>)</em>) – </li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">datalog between these indexes (None if indexes are invalid or equal)</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">np.array</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.get_data_log_index_at_time">
+<code class="descname">get_data_log_index_at_time</code><span class="sig-paren">(</span><em>time</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.get_data_log_index_at_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the index of the data_log closest to “time”</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">time is rounded down to the nearest time when data was logged. So the data log entry will never occur after the specified time</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>time</strong> (<em>float</em>) – Simulation time in seconds to get the data index for</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">data_log index</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">int</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.get_robots_collision_list">
+<code class="descname">get_robots_collision_list</code><span class="sig-paren">(</span><em>robot</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.get_robots_collision_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compiles a list of robots the robot could be in collision with</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>robot</strong> (<a class="reference internal" href="#SimulationRobot.SimulationRobot" title="SimulationRobot.SimulationRobot"><em>SimulationRobot</em></a>) – Robot to compile a colision list for</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">List of robot indexes the robot could be in colision with</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">list</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.init_data_log">
+<code class="descname">init_data_log</code><span class="sig-paren">(</span><em>steps_num</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.init_data_log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialises data log to length determined by steps_num</p>
+<p>Data log is initialised to zero so if not all simulation steps are executed then data log after t_step will not be valid</p>
+<p>Data log takes is of the shape (num_robots, data_log_length,4)</p>
+<p>For a given robot at a given data index eg. data_log[0,0,:] = [robot x, robot y, robot rotation, robot state]</p>
+<p>Data is logged every data_log_period  in simulation time. If this is smaller than simulation timesteps (dt) then data_log_period will equal dt
+and will be logged every timestep. You may wish to make data_log_period greater than dt for large numbers of simulation steps or if you are only interested in the final state of the simulaiton</p>
+<p>data_log_period will be rounded down to the neariest multiple of dt and should be set before this function is called</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>steps_num</strong> (<em>int</em>) – Number of steps the simulation is going to run for</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.init_physics">
+<code class="descname">init_physics</code><span class="sig-paren">(</span><em>maximum_neighbour_size=1.0</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.init_physics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialises the collision grid. Should be called after setting bin_size and barriers</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.load">
+<code class="descname">load</code><span class="sig-paren">(</span><em>file_path</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads the world from a pickle file at the filepath</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>file_path</strong> (<em>str</em>) – The file path to where the world will be loaded from. Should include the file extension</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">The loaded SimulationWorld</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference internal" href="#SimulationWorld.SimulationWorld" title="SimulationWorld.SimulationWorld">SimulationWorld</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.populate">
+<code class="descname">populate</code><span class="sig-paren">(</span><em>num_robots</em>, <em>r_template</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.populate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds robots into the world, each robot is a deepcopy of r_template</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>num_robots</strong> (<em>int</em>) – Number of robots to add to the world</li>
+<li><strong>r_template</strong> (<a class="reference internal" href="#SimulationRobot.SimulationRobot" title="SimulationRobot.SimulationRobot"><em>SimulationRobot</em></a>) – The robot the world will be populated with</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.save">
+<code class="descname">save</code><span class="sig-paren">(</span><em>file_path</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves the world to a pickle file at the filepath</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>file_path</strong> (<em>str</em>) – The file path to where the world should be saved. Should include the file extension</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.solve_collison">
+<code class="descname">solve_collison</code><span class="sig-paren">(</span><em>robot1</em>, <em>collision_list</em>, <em>last_free_dt</em>, <em>last_collision_dt</em>, <em>depth=0</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.solve_collison" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines the latest time between time steps a robot wasn’t in collision</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>robot1</strong> (<a class="reference internal" href="#SimulationRobot.SimulationRobot" title="SimulationRobot.SimulationRobot"><em>SimulationRobot</em></a>) – The robot we’re solving collisions for</li>
+<li><strong>collision_list</strong> (<em>list</em>) – The list of robots this robot could be in collision with</li>
+<li><strong>last_free_dt</strong> (<em>float</em>) – The latest time we know the robot isn’t in colision (starts at 0 ie. end of the previous timestep)</li>
+<li><strong>last_collision_dt</strong> (<em>float</em>) – The earliest time we know the robot is in collision (starts at dt ie. end of the current time step)</li>
+<li><strong>depth</strong> (<em>float</em>) – The number of times we have called this function for a given robot, will terminate the binary search after max_col_resolve_depth iterations</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">The latest time the robot wasn’t in collision relative to the start of the timestep</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">float</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.SimulationWorld.time_step">
+<code class="descname">time_step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.time_step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes on time step of the simulation</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="SimulationWorld.WorldAnimation">
+<em class="property">class </em><code class="descclassname">SimulationWorld.</code><code class="descname">WorldAnimation</code><span class="sig-paren">(</span><em>world</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class for producing animations of simulations</p>
+<p>Press t while animation is running to pause it, press again to resume playback</p>
+<p>Press r and y to skip one timestep backwards when paused</p>
+<p>Animations can also be exported to .mp4 with by passing a “save_path” to start_animation but this will required that the codecs are installed on the machine</p>
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.animation_callback">
+<code class="descname">animation_callback</code><span class="sig-paren">(</span><em>frame_time</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.animation_callback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Callback for FuncAnimation</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>frame_time</strong> (<em>float</em>) – UNUSED - Required argument form func animation, WorldAnimation uses an internal counter to allow for pausing and skipping functionality.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.increase_internal_time">
+<code class="descname">increase_internal_time</code><span class="sig-paren">(</span><em>increase</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.increase_internal_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Increases the internal time counter and performs wrapping between start and end times of the animation</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>increase</strong> (<em>float</em>) – Amount to increase the counter by (can be negative)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.key_press_handler">
+<code class="descname">key_press_handler</code><span class="sig-paren">(</span><em>event</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.key_press_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Key Handler call back for the figure</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>event</strong> (<em>KeyEvent</em>) – Event passed from the figure</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.plot_snapshot">
+<code class="descname">plot_snapshot</code><span class="sig-paren">(</span><em>time</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.plot_snapshot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a snapshot of the world at a particular timestep. Equivalent to calling WorldAnimation.update_plot(time_step)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>time</strong> (<em>float</em>) – Simulation time step to plot the world at</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.start_animation">
+<code class="descname">start_animation</code><span class="sig-paren">(</span><em>start_time=None</em>, <em>final_time=None</em>, <em>time_between_frames=None</em>, <em>speed=1.0</em>, <em>save_path=None</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.start_animation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Starts the animation by calling FuncAnimation which then repeatidly calls animation_callback to animate the plot</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>start_time</strong> (<em>float</em>) – Start time of the simulation, will default to zero (start if simulation)</li>
+<li><strong>final_time</strong> (<em>float</em>) – End time of the simulation, will default to the end of the simulation</li>
+<li><strong>time_between_frames</strong> (<em>float</em>) – The time between each frame rendered (in terms of simulation time) if None will default to the world’s data log period. For best results this should be a multiple of world’s data log period</li>
+<li><strong>speed</strong> (<em>float</em>) – Playback speed of the animation, ie. the period between rendered frames 1.0 will playback at real time, while 2.0 will playback at double speed.
+NOTE - The figure animation may run slower than this due to the large number of plotting elements to update. But when saving to mp4 the animation will playback correctly
+Might be best to reduce the time_between_frames at highers playback speeds</li>
+<li><strong>save_path</strong> (<em>str</em>) – Saves the animation in .mp4 formate to a save path</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.update_plot">
+<code class="descname">update_plot</code><span class="sig-paren">(</span><em>time</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.update_plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates the plot elements to reflect the world at time_step</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>time</strong> (<em>float</em>) – Simulation time to plot the world at</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.update_robot_patch">
+<code class="descname">update_robot_patch</code><span class="sig-paren">(</span><em>robot_pose</em>, <em>body_patch</em>, <em>direction_patch</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.update_robot_patch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates the plotting elements representing the robot</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>robot_pose</strong> (<em>np</em><em>,</em><em>array</em>) – Robot’s pose in the form (x,y,rotation)</li>
+<li><strong>body_patch</strong> (<em>matplotlib.patches.Circle</em><em> or </em><em>matplotlib.patches.CirclePolygon depending on fast_plot</em>) – Plotting element representing robot’s body</li>
+<li><strong>direction_patch</strong> (<em>matplotlib.patches.Wedge</em><em> or </em><em>None depending on fast_plot</em>) – Plotting element representing robot’s direction</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-SimulationRobot">
+<span id="simulationrobot"></span><h1>SimulationRobot<a class="headerlink" href="#module-SimulationRobot" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="SimulationRobot.SimulationRobot">
+<em class="property">class </em><code class="descclassname">SimulationRobot.</code><code class="descname">SimulationRobot</code><span class="sig-paren">(</span><em>robot_params</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class describing a robot in SimulationWorld</p>
+<dl class="method">
+<dt id="SimulationRobot.SimulationRobot.control_update">
+<code class="descname">control_update</code><span class="sig-paren">(</span><em>dt</em>, <em>world=None</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot.control_update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates the robot’s velocity and rotation according to the alogorithm set in the robot_params dict</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>dt</strong> (<em>float</em>) – The time difference since the last control update</li>
+<li><strong>world</strong> (<a class="reference internal" href="#SimulationWorld.SimulationWorld" title="SimulationWorld.SimulationWorld"><em>SimulationWorld</em></a>) – The world this robot exists within. Used to detect other objects in the world such as other robots and barriers</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationRobot.SimulationRobot.get_neighbours">
+<code class="descname">get_neighbours</code><span class="sig-paren">(</span><em>distance_matrix</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot.get_neighbours" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the robot’s neighbours via their robot_index</p>
+<p>Nebighbourhood params are dictated by neighbourhood_mode, neighbourhood_size and neighbourhood_distance in robot_params</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>distance_matrix</strong> (<em>np.array</em>) – NxN array for a world with N robots in it. Represents the distance between every robot in the array</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Neighbour indexes</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">list</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationRobot.SimulationRobot.movement_update">
+<code class="descname">movement_update</code><span class="sig-paren">(</span><em>dt</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot.movement_update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates the robots position based on its current position and velocity</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>dt</strong> (<em>float</em>) – The time difference since the last movement update</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="SimulationRobot.SimulationRobot.on_sim_start">
+<code class="descname">on_sim_start</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot.on_sim_start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialises the robot depending on the alogorithm set in the robot_params dict</p>
+<p>Executed during the init position log of the SimulationWorld class, so should be executed just before the first time step</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="SimulationRobot.sample_distro">
+<code class="descclassname">SimulationRobot.</code><code class="descname">sample_distro</code><span class="sig-paren">(</span><em>distro_tuple</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.sample_distro" title="Permalink to this definition">¶</a></dt>
+<dd><p>Samples a certain probability distrobution function (PDF) described by a tuple of parameters</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>distro_tuple</strong> (<em>tuple</em><em> (</em><em>distrobution_name</em><em>, </em><em>arg1</em><em>,</em><em>arg2...</em><em>)</em>) – The PDF to sample from</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">the number generated from the PDF</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">float</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </div>
 
 

@@ -5,16 +5,18 @@
 
 Welcome to SimpleSwarm's documentation!
 =======================================
+SimpleSwarm is a python based simulator for modelling swarms of robots. It models each robot as disks with kinematic physics.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+The simulation world and data logging are contained within the SimulationWorld class. This is then populated by instances of SimulationRobot which represent individual robots and their local rules
 
+To see how to setup the SimulationWorld with data logging and then animate the result see demo.py
 
+SimulationWorld
+===================
+.. automodule:: SimulationWorld
+   :members:
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+SimulationRobot
+=====================
+.. automodule:: SimulationRobot
+   :members:

@@ -8,11 +8,15 @@ def sample_distro(distro_tuple):
 
     Parameters
     ----------
-    distro_tuple : tuple (distrobution_name, *args)
+    distro_tuple : tuple (distrobution_name, arg1,arg2...)
         The PDF to sample from
+
     Returns
-    -------
-        float : the number generated from the PDF
+    ---------
+        float
+            the number generated from the PDF
+
+
     """
     distro_type = distro_tuple[0]
     if distro_type == "levy":
@@ -98,7 +102,8 @@ class SimulationRobot:
 
         Returns
         ----------
-        list : Neighbour indexes
+        list
+            Neighbour indexes
 
         """
         neighbour_indexs = []
@@ -118,10 +123,14 @@ class SimulationRobot:
     def control_update(self,dt,world = None):
         """
         Updates the robot's velocity and rotation according to the alogorithm set in the robot_params dict
+
+        Parameters
+        ----------
         dt : float
             The time difference since the last control update
         world : SimulationWorld
             The world this robot exists within. Used to detect other objects in the world such as other robots and barriers
+
         """
 
         self.timer -=dt 
