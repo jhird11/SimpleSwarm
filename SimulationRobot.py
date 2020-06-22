@@ -8,11 +8,11 @@ def sample_distro(distro_tuple):
 
     Parameters
     ----------
-    distro_tuple - tuple (distrobution_name, *args)
+    distro_tuple : tuple (distrobution_name, *args)
         The PDF to sample from
     Returns
     -------
-        float - the number generated from the PDF
+        float : the number generated from the PDF
     """
     distro_type = distro_tuple[0]
     if distro_type == "levy":
@@ -32,7 +32,7 @@ class SimulationRobot:
 
         Parameters
         ----------
-        robot_params - dict
+        robot_params : dict
             Dictionary containing all key robot parameters        
         """
 
@@ -79,13 +79,28 @@ class SimulationRobot:
 
         Parameters
         ----------
-        dt - float
-        The time difference since the last movement update
+        dt : float
+            The time difference since the last movement update
     
         """
         self.prev_position = self.position
         self.position = self.position + self.velocity*dt 
     def get_neighbours(self,distance_matrix):
+        """
+        Returns the robot's neighbours via their robot_index
+
+        Nebighbourhood params are dictated by neighbourhood_mode, neighbourhood_size and neighbourhood_distance in robot_params
+
+        Parameters
+        ----------
+        distance_matrix : np.array
+            NxN array for a world with N robots in it. Represents the distance between every robot in the array
+
+        Returns
+        ----------
+        list : Neighbour indexes
+
+        """
         neighbour_indexs = []
         #There are two ways of defining your neighbourhood, X closest robots to you and all the robots that are within X distance. Both are implimented here and can be changed with the "neighbourhood_mode" key  
         if self.robot_params["neighbourhood_mode"] == "distance":
@@ -103,9 +118,9 @@ class SimulationRobot:
     def control_update(self,dt,world = None):
         """
         Updates the robot's velocity and rotation according to the alogorithm set in the robot_params dict
-        dt - float
+        dt : float
             The time difference since the last control update
-        world - SimulationWorld
+        world : SimulationWorld
             The world this robot exists within. Used to detect other objects in the world such as other robots and barriers
         """
 

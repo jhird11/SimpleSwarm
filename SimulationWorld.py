@@ -14,51 +14,14 @@ from SimulationRobot import SimulationRobot
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as patches
-"""
-Basic Python swam simulator by Julian Hird - j.hird@bristol.ac.uk
-Tested on:
-    python                        2.7.17
-    Ubuntu                        Ubuntu 18.04.4 LTS
-    scipy                         1.2.2  
-    numpy                         1.16.4 
-    matplotlib                    2.2.4
-
-See the bottom of this script for a demonstration of the simulator
-"""
-
-def gen_circle(centre_point,r,num_points = 100):
-    """
-    Returns an array of points along the perimeter of a circle located at centre with radius r
-
-    Parameters
-    ----------
-    centre_point : tuple
-        Centre of the circle
-    r : float
-        Radius of the circle
-    num_points : int
-        Number of samples taken along the circle's perimeter
-
-    Returns 
-    ------
-    circle_array
-        An numpy array of points
-    """
-    x_c,y_c = centre_point
-
-    x = np.linspace(-r,r,num_points/2)   
-    y = np.zeros((num_points))
-    y[:int(num_points/2)] = r*np.sin(np.arccos(x/r))
-
-    y[int(num_points/2):] = -r*np.sin(np.arccos(x/r))
-    x = np.hstack((x,np.flip(x)))
-    x+=np.ones(num_points)*x_c
-    y+=np.ones(num_points)*y_c
-    return np.array((x,y)).T
 
 
 class SimulationWorld:
+    """
+    The main class which represents the simulation enviroment. 
+    
 
+    """
     def __init__(self):
 
         # Time between each simulation step
@@ -102,14 +65,14 @@ class SimulationWorld:
             Parameters
             ----------
             
-            robot_size - float
+            robot_size : float
                 Radius of robot
-            robot_position - np.array
+            robot_position : np.array
                 x,y position of robot
 
             Returns
             ------
-                bool - True if robot is in collision with outer barriers
+                bool : True if robot is in collision with outer barriers
 
         """
 
@@ -146,7 +109,7 @@ class SimulationWorld:
 
             Returns
             ------
-                True if robots are in collision with each other
+                bool : True if robots are in collision with each other, otherwise False
 
         """
         return np.sum(np.power((robot2_pos-robot1_pos),2.0)) < np.power(robot1_radius + robot2_radius,2.0)
@@ -166,12 +129,12 @@ class SimulationWorld:
             The latest time we know the robot isn't in colision (starts at 0 ie. end of the previous timestep)
         last_collision_dt : float
             The earliest time we know the robot is in collision (starts at dt ie. end of the current time step)
-        depth :float  
+        depth : float  
             The number of times we have called this function for a given robot, will terminate the binary search after max_col_resolve_depth iterations
     
         Returns
         ------
-            float - The latest time the robot wasn't in collision relative to the start of the timestep
+            float : The latest time the robot wasn't in collision relative to the start of the timestep
         """
         depth+=1
         #Terminate the search if we've reached max number of iterations of the search
@@ -272,12 +235,15 @@ class SimulationWorld:
 
         NOTE 
             time is rounded down to the nearest time when data was logged. So the data log entry will never occur after the specified time
+
         Parameters
         ----------
-        time - float
+        time : float
             Simulation time in seconds to get the data index for  
-        returns
-            int - data_log index
+
+        Returns
+        ----------
+            int : data_log index
         """
         return np.floor(time/self.data_log_period).astype('int')
 
@@ -289,10 +255,12 @@ class SimulationWorld:
         time is rounded down to the nearest time when data was logged. So the data log entry will never occur after the specified time
         Parameters
         ----------
-        time - float
+        time : float
             Simulation time in seconds to get the data index for  
-        returns
-            np.array - data_log entry at "time"
+
+        Returns
+        ----------
+            np.array : data_log entry at "time"
         """
         return self.get_data_log_by_index(self.get_data_log_index_at_time(time),self.get_data_log_index_at_time(time)+1)
 
@@ -306,15 +274,14 @@ class SimulationWorld:
         
         Parameters
         ----------
-        index_start -  index of the data log to begin access at 
+        index_start : index of the data log to begin access at 
 
-        index_end -  index of the data log to end access at (not included)
+        index_end : index of the data log to end access at (not included)
 
         Returns
-        np.array - datalog between these indexes 
-        OR
-        None if indexes are invalid or equal
-
+        ----------
+        np.array : datalog between these indexes (None if indexes are invalid or equal)
+        
         """
 
         if index_end > index_start:
@@ -335,7 +302,7 @@ class SimulationWorld:
 
         Returns
         ------
-            tuple(int,int) - The robot's position the colision grid
+            tuple(int,int) : The robot's position the collision grid
         """
 
         bin_num_x = np.floor((robot.position[0]-self.barriers[0])/self.bin_size)
@@ -355,7 +322,7 @@ class SimulationWorld:
             Robot to compile a colision list for
         Returns
         -------
-            list - List of robot indexes the robot could be in colision with
+            list : List of robot indexes the robot could be in colision with
         """
         collison_list = []
         for bin_x_index in [robot.bin_index[0]-1,robot.bin_index[0],robot.bin_index[0]+1]:#not inclusive
@@ -365,13 +332,13 @@ class SimulationWorld:
         return collison_list
 
 
-    def arrange(self,mode = "smallest_square", **kargs):
+    def arrange(self,mode = "smallest_square", **kwargs):
         """
         Arranges the robots into a starting configuration. Should be called just before the first time_step()
 
         Parameters
         ---------
-        settings - tuple
+        settings : tuple
             Determins how the robots are arranged
             ("auto_box", box_position, robot_spacing, rand_amount) will organise the robots in the smallest possible square centered on box_position such that robots are separated by robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset of magnitude rand_amount to each robot's position
             NOTE:
@@ -388,9 +355,9 @@ class SimulationWorld:
         if mode == "smallest_square" or mode == "uniform_box":
 
 
-            boxpos = kargs["center_pos"]
-            robot_spacing =  kargs["robot_separation"]
-            rand_amount = kargs.setdefault("added_noise",0.0)
+            boxpos = kwargs["center_pos"]
+            robot_spacing =  kwargs["robot_separation"]
+            rand_amount = kwargs.setdefault("added_noise",0.0)
             
 
             robot_index = 0
@@ -402,7 +369,7 @@ class SimulationWorld:
                 boxsize = robot_spacing*np.ceil(np.sqrt(self.num_robots))*np.ones(2) + robot_spacing/2
             elif mode == "uniform_box":
                 self.sep_dist = self.robot_list[0].robot_params["radius"]*2
-                boxsize = kargs["box_size"]
+                boxsize = kwargs["box_size"]
             
             grid_width = int(np.floor(boxsize[0]/robot_spacing))#Assumes same size of robots
             grid_height = int(np.floor(boxsize[1]/robot_spacing))
@@ -557,6 +524,9 @@ class SimulationWorld:
         ----------
         file_path : str
             The file path to where the world will be loaded from. Should include the file extension
+        Returns
+        ---------
+            SimulationWorld : The loaded simulation
         """
         with open(file_path, 'rb') as handle:
             return pickle.load(handle)
@@ -577,7 +547,7 @@ class WorldAnimation():
     NOTE:
         This could be done a lot nicer with patches, but for simplicity we will stick with lines
     """
-    def __init__(self,world,**kargs):
+    def __init__(self,world,**kwargs):
         """
         Initialises the WorldAnimation class
 
@@ -586,29 +556,27 @@ class WorldAnimation():
 
         Parameters
         ---------
-        world - SimulationWorld
+        world : SimulationWorld
             The world you want to animate
 
-        **kargs - misc
+        **kwargs : Arbitrary keyword arguments
 
-        Valid **kargs Keywords
-
-        robot_trail_length - str
+        robot_trail_length : str
             Controls the length of the trail behind each robot in terms of timesteps (default 0)
-        robot_trail_width - float
+        robot_trail_width : float
             Controls the width of robot trails (default = 0.1)
-        robot_state_cmap - dict
+        robot_state_cmap : dict
             Maps between robot state (intergers) to valid matplotlib colour codes. dict should be in the form {robot_state : colour}
-        "robot_labels" - bool
+        "robot_labels" : bool
             If true will label each robot with its robot_index (Default = False)
 
-        fast_plot - bool
+        fast_plot : bool
             If true will disable robot trails, robot labels and simpify the shape used to represent each robot
 
-        view_collision_bins - bool
+        view_collision_bins : bool
             If true will plot the collision bins as dotted lines on the world (Default = False)
 
-        viewing_bounds = tuple
+        viewing_bounds : tuple
             Sets the viewing window of the plot in world co-ordinates in the form (min_x,max_x,min_y,max_y) defaults to 10% larger than the world's barriers
 
         """
@@ -627,33 +595,33 @@ class WorldAnimation():
         self.robot_artists = []
 
 
-        #Set values for **kargs if they are not specified
+        #Set values for **kwargs if they are not specified
 
-        if "robot_trail_length" in kargs and kargs["robot_trail_length"]!=0:
-            self.trail_length = int(kargs["robot_trail_length"])
+        if "robot_trail_length" in kwargs and kwargs["robot_trail_length"]!=0:
+            self.trail_length = int(kwargs["robot_trail_length"])
             self.enable_trails = True
         else:
             self.enable_trails = False
             self.trail_length = 0 
 
-        if "robot_state_cmap" in kargs:
-            self.r_state_cmap = kargs["robot_state_cmap"]
+        if "robot_state_cmap" in kwargs:
+            self.r_state_cmap = kwargs["robot_state_cmap"]
         else:
             self.r_state_cmap = { 0 : 'dimgrey',
                                   1 : 'palegreen',
                                   2 : 'lightcoral',
                                   3 : 'blue'}
 
-        self.enable_labels = kargs.setdefault("robot_labels",False)
+        self.enable_labels = kwargs.setdefault("robot_labels",False)
 
 
         #Creates patches and trails for each robot based on if they are enabled or not
         robot_index = 0
         for r in world.robot_list:
            
-            if "fast_plot" in kargs and kargs["fast_plot"] == True:
+            if "fast_plot" in kwargs and kwargs["fast_plot"] == True:
                 self.fast_plot = True
-                body_patch = patches.CirclePolygon((0,0),world.robot_list[robot_index].robot_params["radius"],resolution = 5,linewidth = kargs.setdefault("robot_body_width",0.1))
+                body_patch = patches.CirclePolygon((0,0),world.robot_list[robot_index].robot_params["radius"],resolution = 5,linewidth = kwargs.setdefault("robot_body_width",0.1))
                 direction_patch = None
                 robot_trail = None
                 robot_label = None
@@ -662,11 +630,11 @@ class WorldAnimation():
                 self.enable_labels = False
             else: 
                 self.fast_plot = False   
-                body_patch = patches.Circle((0,0),world.robot_list[robot_index].robot_params["radius"],linewidth = kargs.setdefault("robot_body_width",0.1))
+                body_patch = patches.Circle((0,0),world.robot_list[robot_index].robot_params["radius"],linewidth = kwargs.setdefault("robot_body_width",0.1))
                 direction_patch = patches.Wedge((0,0), world.robot_list[robot_index].robot_params["radius"], -15, 15,color = 'black')
 
                 if self.enable_trails:
-                    robot_trail = plt.plot([], [],linewidth = kargs.setdefault("robot_trail_width",0.1))[0]
+                    robot_trail = plt.plot([], [],linewidth = kwargs.setdefault("robot_trail_width",0.1))[0]
                 else:
                     robot_trail = None
                 
@@ -696,15 +664,15 @@ class WorldAnimation():
         barrier_line = np.array((p1,p2,p3,p4,p1))
         plt.plot(barrier_line[:,0],barrier_line[:,1])
 
-        if "view_collision_bins" in kargs and kargs["view_collision_bins"] == True:
+        if "view_collision_bins" in kwargs and kwargs["view_collision_bins"] == True:
             for x in range(self.world.bin_layout[0]):
                 plt.plot((x*self.world.bin_size+self.world.barriers[0],x*self.world.bin_size+world.barriers[0]),(self.world.barriers[2],self.world.barriers[3]),linestyle= '--',linewidth = 0.5,color = 'black')
             for y in range(self.world.bin_layout[1]):
                 plt.plot((self.world.barriers[0],self.world.barriers[1]),(y*self.world.bin_size+world.barriers[2],y*self.world.bin_size+self.world.barriers[2]),linestyle= '--',linewidth = 0.5,color = 'black')
 
-        if "viewing_bounds" in kargs:
-            plt.xlim((kargs["viewing_bounds"][0],kargs["viewing_bounds"][1]))
-            plt.ylim((kargs["viewing_bounds"][2],kargs["viewing_bounds"][3]))
+        if "viewing_bounds" in kwargs:
+            plt.xlim((kwargs["viewing_bounds"][0],kwargs["viewing_bounds"][1]))
+            plt.ylim((kwargs["viewing_bounds"][2],kwargs["viewing_bounds"][3]))
         else:
             plt.xlim((self.world.barriers[0]*1.1,self.world.barriers[1]*1.1))
             plt.ylim((self.world.barriers[2]*1.1,self.world.barriers[3]*1.1))
@@ -718,11 +686,11 @@ class WorldAnimation():
 
         Parameters
         ---------
-        robot_pose - np,array
+        robot_pose : np,array
             Robot's pose in the form (x,y,rotation)
-        body_patch - matplotlib.patches.Circle or matplotlib.patches.CirclePolygon depending on fast_plot
+        body_patch : matplotlib.patches.Circle or matplotlib.patches.CirclePolygon depending on fast_plot
             Plotting element representing robot's body
-        direction_patch - matplotlib.patches.Wedge or None depending on fast_plot
+        direction_patch : matplotlib.patches.Wedge or None depending on fast_plot
             Plotting element representing robot's direction
         """
         if not self.fast_plot:
@@ -744,7 +712,7 @@ class WorldAnimation():
         
         Parameters
         ---------
-        event - KeyEvent
+        event : KeyEvent
 
         """
         sys.stdout.flush()
@@ -765,7 +733,7 @@ class WorldAnimation():
         
         Parameters
         ---------
-            time - Time to plot the world at
+            time : Time to plot the world at
         """
 
         self.time_text.set_text("t = {:4.2f}s".format(time)) 
@@ -798,7 +766,7 @@ class WorldAnimation():
         
         Parameters
         ---------
-            time - Time step to plot the world at
+            time : Time step to plot the world at
         """
 
 
@@ -810,7 +778,7 @@ class WorldAnimation():
 
         Parameters
         ---------
-        increase - float
+        increase : float
             Amount to increase the counter by (can be negative)
 
         """
@@ -825,7 +793,7 @@ class WorldAnimation():
         
         Parameters
         ---------
-        frame_time - float
+        frame_time : float
             UNUSED - Required argument form func animation, WorldAnimation uses an internal counter to allow for pausing and skipping functionality.
 
         """
@@ -847,23 +815,23 @@ class WorldAnimation():
 
         Parameters 
         ----------
-        start_time  - float
+        start_time  : float
             Start time of the simulation, will default to zero (start if simulation)
 
-        final_time  - float
+        final_time  : float
             End time of the simulation, will default to the end of the simulation
 
 
-        time_between_frames - float
+        time_between_frames : float
             The time between each frame rendered (in terms of simulation time) if None will default to the world's data log period. For best results this should be a multiple of world's data log period
 
-        speed - float
+        speed : float
             Playback speed of the animation, ie. the period between rendered frames 1.0 will playback at real time, while 2.0 will playback at double speed. 
             NOTE:
                 The figure animation may run slower than this due to the large number of plotting elements to update. But when saving to mp4 the animation will playback correctly
                 Might be best to reduce the time_between_frames at highers playback speeds 
 
-        save_path - str
+        save_path : str
             Saves the animation in .mp4 formate to a save path
         """
         if start_time is None:
@@ -927,7 +895,7 @@ class WorldAnimation():
 
 
 if __name__ == "__main__":
-
+    
     #Simulate the world or load from the "world.pickle" file in this scripts directory
     simulate_world = True
     if simulate_world:
