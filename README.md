@@ -1,4 +1,4 @@
-# pyswarm
+# SimpleSwarm
 
 A simple particle based simulator of swarms coded in Python and Scipy packages
 
