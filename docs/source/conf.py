@@ -172,3 +172,7 @@ epub_title = project
 epub_exclude_files = ['search.html']
 #Mock imports this is a silly system
 autodoc_mock_imports = ['numpy', 'matplotlib', 'matplotlib.pyplot','matplotlib.patches','matplotlib.animation', 'scipy','scipy.stats','scipy.spatial']
+
+autodoc_default_options = {
+    'special-members': '__init__',
+}

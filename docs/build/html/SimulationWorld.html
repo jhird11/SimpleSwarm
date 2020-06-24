@@ -41,6 +41,11 @@
 <em class="property">class </em><code class="descclassname">SimulationWorld.</code><code class="descname">SimulationWorld</code><a class="headerlink" href="#SimulationWorld.SimulationWorld" title="Permalink to this definition">¶</a></dt>
 <dd><p>The main class which represents the simulation enviroment.</p>
 <dl class="method">
+<dt id="SimulationWorld.SimulationWorld.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="SimulationWorld.SimulationWorld.arrange">
 <code class="descname">arrange</code><span class="sig-paren">(</span><em>mode='smallest_square'</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.SimulationWorld.arrange" title="Permalink to this definition">¶</a></dt>
 <dd><p>Arranges the robots into a starting configuration. Should be called just before the first time_step()</p>
@@ -48,12 +53,19 @@
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> (<em>tuple</em>) – <p>Determines how the robots are arranged</p>
-<p>(“auto_box”, box_position, robot_spacing, rand_amount) will organise the robots in the smallest possible square centered on box_position such that robots are separated by robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset of magnitude rand_amount to each robot’s position</p>
-<p>NOTE:
-This method assumes all robots are the same size based on the first robot in robot list
-Robot separation is the distance between the edges of the robots rather than their centres</p>
-<p>Robots have uniformally distributed rotations</p>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>mode</strong> (<em>str</em>) – <p>Determines how the robots are arranged</p>
+<p>”smallest_square” will organise the robots in the smallest possible square centered on box_position</p>
+<p>You can also specify the size of the area robots are distrobuted in using the “uniform_box” mode and box_size</p>
+<p>Robots are separated by at least robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset to each robot’s position.</p>
+</li>
+<li><strong>**kwargs</strong> – box_position - centre of the box the robots are to be arranged in
+robot_spacing - distance between the edges of the robots rather than their centres. For each mode this is the minimum gauranteed distance not accounting for rand_amount
+rand_amount - magnitude of the random offset added to each robot. Should be less than robot_spacing to avoid colisions
+box_size    - Only required for “uniform_box” mode, determines the size of the area to arrange robots in</li>
+<li><strong>NOTE</strong> – This method assumes all robots are the same size based on the first robot in robot list
+Robots have uniformally distributed rotations for both modes</li>
+</ul>
 </td>
 </tr>
 </tbody>
@@ -330,6 +342,44 @@ and will be logged every timestep. You may wish to make data_log_period greater 
 <p>Press t while animation is running to pause it, press again to resume playback</p>
 <p>Press r and y to skip one timestep backwards when paused</p>
 <p>Animations can also be exported to .mp4 with by passing a “save_path” to start_animation but this will required that the codecs are installed on the machine</p>
+<dl class="method">
+<dt id="SimulationWorld.WorldAnimation.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>world</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialises the WorldAnimation class</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This class will create its own figure</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>world</strong> (<a class="reference internal" href="#SimulationWorld.SimulationWorld" title="SimulationWorld.SimulationWorld"><em>SimulationWorld</em></a>) – The world you want to animate</li>
+<li><strong>**kwargs</strong> – <dl class="docutils">
+<dt>robot_trail_length <span class="classifier-delimiter">:</span> <span class="classifier">str</span></dt>
+<dd>Controls the length of the trail behind each robot in terms of timesteps (default 0)</dd>
+<dt>robot_trail_width <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>Controls the width of robot trails (default = 0.1)</dd>
+<dt>robot_state_cmap <span class="classifier-delimiter">:</span> <span class="classifier">dict</span></dt>
+<dd>Maps between robot state (intergers) to valid matplotlib colour codes. dict should be in the form {robot_state : colour}</dd>
+<dt>”robot_labels” <span class="classifier-delimiter">:</span> <span class="classifier">bool</span></dt>
+<dd>If true will label each robot with its robot_index (Default = False)</dd>
+<dt>fast_plot <span class="classifier-delimiter">:</span> <span class="classifier">bool</span></dt>
+<dd>If true will disable robot trails, robot labels and simpify the shape used to represent each robot</dd>
+<dt>view_collision_bins <span class="classifier-delimiter">:</span> <span class="classifier">bool</span></dt>
+<dd>If true will plot the collision bins as dotted lines on the world (Default = False)</dd>
+<dt>viewing_bounds <span class="classifier-delimiter">:</span> <span class="classifier">tuple</span></dt>
+<dd>Sets the viewing window of the plot in world co-ordinates in the form (min_x,max_x,min_y,max_y) defaults to 10% larger than the world’s barriers</dd>
+</dl>
+</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="SimulationWorld.WorldAnimation.animation_callback">
 <code class="descname">animation_callback</code><span class="sig-paren">(</span><em>frame_time</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationWorld.WorldAnimation.animation_callback" title="Permalink to this definition">¶</a></dt>

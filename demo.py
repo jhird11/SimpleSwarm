@@ -9,6 +9,12 @@ from SimulationRobot import SimulationRobot
 
 if __name__ == "__main__":
 
+    #This demo will run a simulation, save it to a file, load it from the file and then animate it.
+
+    # You can change the behavoir of the robots in the simulation by editing Lines 96 - 100 to initialise the robot from a different dictionary
+
+    # If you want to load a previous simulation set simulate world to False and edit line 168 to reflect your simulations file path
+
     #Simulate the world or load from the "world.pickle" file in this scripts directory
     simulate_world = True
     if simulate_world:
@@ -91,7 +97,6 @@ if __name__ == "__main__":
         
         #r = SimulationRobot(robot_params_rw) # Uncommment to switch to random walking robots
         r = SimulationRobot(robot_params_boid)
-        
         #r = SimulationRobot(robot_params_firefly) #Uncomment to switch to a firefly synchronisation demo
 
         #The required simulation time step  and collision bin size are then calculated. These robots currently go at fixed size but if there speed could vary the fasted possible velocity should be used here
@@ -112,12 +117,11 @@ if __name__ == "__main__":
         #Initialises our robot's positions are the start  of the simulation, currently this is a the smallest possible square the robots can occuoy with 0.25m inbetween their bodies
 
         world.arrange(mode = "smallest_square",center_pos = (0.0,0.0),robot_separation = 0.1, added_noise = 0.0)
-        #world.arrange(mode = "uniform_box",center_pos = (0.0,0.0),robot_separation = 0.1, added_noise = 0.0,box_size = (world.barriers[1]-world.barriers[0],world.barriers[3]-world.barriers[2]))
+        #world.arrange(mode = "uniform_box",center_pos = (0.0,0.0),robot_separation = 0.1, added_noise = 0.0,box_size = (world.barriers[1]-world.barriers[0],world.barriers[3]-world.barriers[2])) #This will arrange the robots over the entire world area rarther than in the middle
 
 
         #The number of steps we will simulate
         #This is the time we want to simulate divided by the amount of time we simulate each time step (dt)
-#        steps_num = int(2*60.0/world.dt)
         steps_num = int(2*60.0/world.dt)
 
         #If will create a window that shows the simulation's state evert so often (dictated by snap_shot_steps) - useful for debugging
@@ -158,7 +162,7 @@ if __name__ == "__main__":
 
         print("Average execution time {:4.4f}s per timestep. Maximum time per timestep = {:4.4f}s Time taken {:4.2f}s".format(exec_times/float(steps_num),max_exec_time,time.time()-sim_start_time))
 
-        #Saves the world using pythons pickle format
+        #Saves the world using pythons pickle format to the current working directory (should be this scripts directory)
         world.save("world.pickle")
 
     world = SimulationWorld().load("world.pickle")

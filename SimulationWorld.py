@@ -347,16 +347,24 @@ class SimulationWorld:
 
         Parameters
         ---------
-        settings : tuple
+        mode : str
             Determines how the robots are arranged
 
-            ("auto_box", box_position, robot_spacing, rand_amount) will organise the robots in the smallest possible square centered on box_position such that robots are separated by robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset of magnitude rand_amount to each robot's position
+            "smallest_square" will organise the robots in the smallest possible square centered on box_position 
             
-            NOTE:
+            You can also specify the size of the area robots are distrobuted in using the "uniform_box" mode and box_size
+            
+            Robots are separated by at least robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset to each robot's position.
+        
+        **kwargs
+            box_position - centre of the box the robots are to be arranged in
+            robot_spacing - distance between the edges of the robots rather than their centres. For each mode this is the minimum gauranteed distance not accounting for rand_amount
+            rand_amount - magnitude of the random offset added to each robot. Should be less than robot_spacing to avoid colisions
+            box_size    - Only required for "uniform_box" mode, determines the size of the area to arrange robots in
+        NOTE:
             This method assumes all robots are the same size based on the first robot in robot list
-            Robot separation is the distance between the edges of the robots rather than their centres
-            
-            Robots have uniformally distributed rotations
+            Robots have uniformally distributed rotations for both modes
+
         """
 
 
@@ -566,25 +574,25 @@ class WorldAnimation():
         world : SimulationWorld
             The world you want to animate
 
-        **kwargs : Arbitrary keyword arguments
+        **kwargs
 
-        robot_trail_length : str
-            Controls the length of the trail behind each robot in terms of timesteps (default 0)
-        robot_trail_width : float
-            Controls the width of robot trails (default = 0.1)
-        robot_state_cmap : dict
-            Maps between robot state (intergers) to valid matplotlib colour codes. dict should be in the form {robot_state : colour}
-        "robot_labels" : bool
-            If true will label each robot with its robot_index (Default = False)
+            robot_trail_length : str
+                Controls the length of the trail behind each robot in terms of timesteps (default 0)
+            robot_trail_width : float
+                Controls the width of robot trails (default = 0.1)
+            robot_state_cmap : dict
+                Maps between robot state (intergers) to valid matplotlib colour codes. dict should be in the form {robot_state : colour}
+            "robot_labels" : bool
+                If true will label each robot with its robot_index (Default = False)
 
-        fast_plot : bool
-            If true will disable robot trails, robot labels and simpify the shape used to represent each robot
+            fast_plot : bool
+                If true will disable robot trails, robot labels and simpify the shape used to represent each robot
 
-        view_collision_bins : bool
-            If true will plot the collision bins as dotted lines on the world (Default = False)
+            view_collision_bins : bool
+                If true will plot the collision bins as dotted lines on the world (Default = False)
 
-        viewing_bounds : tuple
-            Sets the viewing window of the plot in world co-ordinates in the form (min_x,max_x,min_y,max_y) defaults to 10% larger than the world's barriers
+            viewing_bounds : tuple
+                Sets the viewing window of the plot in world co-ordinates in the form (min_x,max_x,min_y,max_y) defaults to 10% larger than the world's barriers
 
         """
 

@@ -40,6 +40,20 @@
 <em class="property">class </em><code class="descclassname">SimulationRobot.</code><code class="descname">SimulationRobot</code><span class="sig-paren">(</span><em>robot_params</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot" title="Permalink to this definition">¶</a></dt>
 <dd><p>Class describing a robot in SimulationWorld</p>
 <dl class="method">
+<dt id="SimulationRobot.SimulationRobot.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>robot_params</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialises the robot class from a dictionary containing all key robot parameters</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>robot_params</strong> (<em>dict</em>) – Dictionary containing all key robot parameters</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
 <dt id="SimulationRobot.SimulationRobot.control_update">
 <code class="descname">control_update</code><span class="sig-paren">(</span><em>dt</em>, <em>world=None</em><span class="sig-paren">)</span><a class="headerlink" href="#SimulationRobot.SimulationRobot.control_update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Updates the robot’s velocity and rotation according to the alogorithm set in the robot_params dict</p>
