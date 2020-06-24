@@ -343,7 +343,11 @@ class SimulationWorld:
 
     def arrange(self,mode = "smallest_square", **kwargs):
         """
-        Arranges the robots into a starting configuration. Should be called just before the first time_step()
+        Arranges the robots into a starting configuration. Should be called just before the first time_step() 
+
+        NOTE:
+            This method does not prevent invalid configurates eg. robots outside the arena. But will print an error message if robots start off in collision
+            
 
         Parameters
         ---------
@@ -356,13 +360,22 @@ class SimulationWorld:
             
             Robots are separated by at least robot_spacing. rand_amount can be used to make the robot arrangement less regular by adding a random offset to each robot's position.
         
+
         **kwargs
-            box_position - centre of the box the robots are to be arranged in
-            robot_spacing - distance between the edges of the robots rather than their centres. For each mode this is the minimum gauranteed distance not accounting for rand_amount
-            rand_amount - magnitude of the random offset added to each robot. Should be less than robot_spacing to avoid colisions
-            box_size    - Only required for "uniform_box" mode, determines the size of the area to arrange robots in
+            box_position : tuple(float,float) 
+                Centre of the box the robots are to be arranged in
+
+            robot_spacing : float
+                Distance between the edges of the robots rather than their centres. For each mode this is the minimum gauranteed distance not accounting for rand_amount
+
+            rand_amount : float
+                Magnitude of the random offset added to each robot. Should be less than robot_spacing to avoid colisions
+
+            box_size : tuple(float,float)
+                Only required for "uniform_box" mode, determines the size of the area to arrange robots in
+
         NOTE:
-            This method assumes all robots are the same size based on the first robot in robot list
+            Both "smallest_square" and "uniform_box" methods assumes all robots are the same size based on the first robot in robot list
             Robots have uniformally distributed rotations for both modes
 
         """
